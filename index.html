@@ -3,7 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#ffffff" id="themecolor">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Gwandkastl">
 <title>Gwandkastl</title>
@@ -14,11 +16,17 @@
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#FFFFFF; --ink:#000000; --stage:#EEEEEB; --muted:#6F6F6F; --line:#E2E2DF;
-  --loden:#3F4B3A; --danger:#B3261E;
+  --bg:#FFFFFF; --ink:#000000; --soft:#F1F1EE; --muted:#6F6F6F; --line:#E2E2DF;
+  --stage:#C9C9C4;   /* immer gleiches mittleres Grau hinter den Kleidungsstücken */
+  --loden:#3F4B3A; --onaccent:#FFFFFF; --danger:#B3261E;
   --font:'Jost', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   color-scheme:light;
 }
+:root[data-theme="dark"]{
+  --bg:#141414; --ink:#F2F2EF; --soft:#232321; --muted:#A3A39E; --line:#34342F;
+  --loden:#9CB08F; --onaccent:#10140E; --danger:#FF8A80; color-scheme:dark;
+}
+body{transition:background-color .6s, color .6s}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{min-height:100%}
 body{font-family:var(--font);font-weight:400;font-size:16px;line-height:1.45;color:var(--ink);background:var(--bg);
@@ -33,13 +41,13 @@ h2{font-weight:400;font-size:20px}
 .muted{color:var(--muted)} .small{font-size:14px}
 
 /* Kopf & Navigation */
-.top{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.94);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb, var(--bg) 94%, transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
   padding:calc(env(safe-area-inset-top,0px) + 14px) 20px 12px;display:flex;align-items:center;gap:24px;border-bottom:1px solid var(--line)}
 .logo{font-weight:300;font-size:25px;letter-spacing:.01em}
 .brand{display:flex;align-items:baseline;gap:8px;margin-right:auto;text-align:left;min-width:0}
 .owner{color:var(--muted);font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:inline-flex;align-items:center;gap:2px}
 .owner svg{width:16px;height:16px;align-self:center}
-.bgbar{position:absolute;left:0;right:0;bottom:-1px;transform:translateY(100%);background:#fff;border-bottom:1px solid var(--line);padding:6px 20px 8px;font-size:13px}
+.bgbar{position:absolute;left:0;right:0;bottom:-1px;transform:translateY(100%);background:var(--bg);border-bottom:1px solid var(--line);padding:6px 20px 8px;font-size:13px}
 .bgbar[hidden]{display:none}
 .bgbar .track{height:2px;background:var(--line);margin-top:5px;overflow:hidden;position:relative}
 .bgbar .fill{position:absolute;left:0;top:0;bottom:0;background:var(--loden);transition:width .4s}
@@ -55,13 +63,13 @@ h2{font-weight:400;font-size:20px}
 .nav button{font-size:15px;padding:6px 0;border-bottom:1.5px solid transparent;color:var(--muted)}
 .nav button.on{color:var(--ink);border-color:var(--ink)}
 .icbtn{width:40px;height:40px;display:grid;place-items:center;border-radius:50%}
-.icbtn:hover{background:var(--stage)}
+.icbtn:hover{background:var(--soft)}
 svg{width:22px;height:22px;flex:none}
 main{max-width:1100px;margin:0 auto;padding:22px 20px calc(110px + env(safe-area-inset-bottom,0px))}
 .tabbar{display:none}
 @media (max-width:799px){
   .top .nav{display:none}
-  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:#fff;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);
+  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--bg);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);
     padding:6px 0 calc(6px + env(safe-area-inset-bottom,0px))}
   .tabbar button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;color:var(--muted);padding:4px}
   .tabbar button.on{color:var(--ink)}
@@ -71,7 +79,7 @@ main{max-width:1100px;margin:0 auto;padding:22px 20px calc(110px + env(safe-area
 .head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:20px}
 .count{color:var(--muted);font-size:15px}
 .head .push{margin-left:auto}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--ink);color:#fff;padding:13px 22px;border-radius:2px;font-weight:500;font-size:15px;border:1px solid var(--ink)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--ink);color:var(--bg);padding:13px 22px;border-radius:2px;font-weight:500;font-size:15px;border:1px solid var(--ink)}
 .btn.ghost{background:transparent;color:var(--ink)}
 .btn.danger{background:transparent;color:var(--danger);border-color:var(--danger)}
 .btn.sm{padding:8px 16px;font-size:14px}
@@ -80,19 +88,20 @@ main{max-width:1100px;margin:0 auto;padding:22px 20px calc(110px + env(safe-area
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chips.scroll{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
 .chips.scroll::-webkit-scrollbar{display:none}
-.chip{border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:14px;white-space:nowrap;background:#fff}
-.chip.on{background:var(--loden);border-color:var(--loden);color:#fff}
+.chip{border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:14px;white-space:nowrap;background:var(--bg)}
+.chip.on{background:var(--loden);border-color:var(--loden);color:var(--onaccent)}
 .sw{width:32px;height:32px;border-radius:50%;border:1px solid rgba(0,0,0,.18)}
-.sw.on{box-shadow:0 0 0 2px #fff,0 0 0 3.5px var(--ink)}
+.sw.on{box-shadow:0 0 0 2px var(--bg),0 0 0 3.5px var(--ink)}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;border:1px solid rgba(0,0,0,.18);flex:none}
 .field{margin-top:18px}
 .field h3{font-size:14px;font-weight:500;margin-bottom:8px}
 .field h3 span{font-weight:400}
-select,input[type=text],input[type=email],input[type=password]{width:100%;border:1px solid var(--line);border-radius:2px;padding:11px 12px;background:#fff;font-size:16px}
+select,input[type=text],input[type=email],input[type=password]{width:100%;border:1px solid var(--line);border-radius:2px;padding:11px 12px;background:var(--bg);color:var(--ink);font-size:16px}
+textarea{font:inherit}
 .spinner{width:28px;height:28px;border:2px solid var(--line);border-top-color:var(--ink);border-radius:50%;animation:spin .9s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.note{font-size:14px;background:var(--stage);padding:10px 12px;margin-bottom:6px;display:flex;gap:10px;align-items:center}
-.note img{width:44px;height:55px;object-fit:contain;background:#fff}
+.note{font-size:14px;background:var(--soft);padding:10px 12px;margin-bottom:6px;display:flex;gap:10px;align-items:center}
+.note img{width:44px;height:55px;object-fit:contain;background:var(--stage)}
 .empty{max-width:520px;padding:10vh 0}
 .empty p{margin:14px 0 26px;color:var(--muted)}
 
@@ -106,9 +115,9 @@ select,input[type=text],input[type=email],input[type=password]{width:100%;border
 
 /* Hinzufügen */
 .addbtns{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:560px}
-.bigbtn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;aspect-ratio:3/2;background:var(--stage);cursor:pointer;font-size:15px;text-align:center;padding:10px}
+.bigbtn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;aspect-ratio:3/2;background:var(--soft);cursor:pointer;font-size:15px;text-align:center;padding:10px}
 .bigbtn svg{width:30px;height:30px}
-.bigbtn:hover{background:#E4E4E0}
+.bigbtn:hover{filter:brightness(.97)}
 .hint{color:var(--muted);font-size:14px;margin:14px 0 4px;max-width:560px}
 .mstatus{font-size:14px;min-height:1.4em;margin-bottom:10px}
 .rcard{display:grid;grid-template-columns:128px 1fr;gap:16px;padding:18px 0;border-top:1px solid var(--line);max-width:760px}
@@ -116,7 +125,7 @@ select,input[type=text],input[type=email],input[type=password]{width:100%;border
 .rcard .field:first-child{margin-top:0}
 .keep{display:flex;gap:8px;align-items:center;font-size:14px;margin-top:10px}
 .keep input{width:18px;height:18px;accent-color:var(--loden)}
-.savebar{position:sticky;bottom:calc(76px + env(safe-area-inset-bottom,0px));display:flex;gap:10px;background:#fff;padding:14px 0;border-top:1px solid var(--line);max-width:760px}
+.savebar{position:sticky;bottom:calc(76px + env(safe-area-inset-bottom,0px));display:flex;gap:10px;background:var(--bg);padding:14px 0;border-top:1px solid var(--line);max-width:760px}
 @media (min-width:800px){.savebar{bottom:0}}
 
 /* Anziehen */
@@ -125,7 +134,7 @@ select,input[type=text],input[type=email],input[type=password]{width:100%;border
 .dress .chips.scroll{margin-bottom:16px}
 .row{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;gap:4px;margin-bottom:8px}
 .arrow{width:44px;height:44px;border-radius:50%;display:grid;place-items:center}
-.arrow:hover:not(:disabled){background:var(--stage)}
+.arrow:hover:not(:disabled){background:var(--soft)}
 .stage{position:relative;background:var(--stage);height:var(--h);display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .stage img{height:100%;width:100%;object-fit:contain;padding:6px;-webkit-user-drag:none}
 .stage img.in-r{animation:inR .22s ease-out}
@@ -135,10 +144,20 @@ select,input[type=text],input[type=email],input[type=password]{width:100%;border
 .rowctl{position:absolute;top:6px;right:6px;display:flex;gap:4px}
 .ic{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.88);display:grid;place-items:center}
 .ic svg{width:17px;height:17px}
-.ic.on{background:var(--ink);color:#fff}
+.ic.on{background:#141414;color:#fff}
 .rowlabel{position:absolute;left:10px;bottom:7px;font-size:12px;color:var(--muted)}
 .hiddenrows{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0 0 48px;font-size:14px}
 .dactions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:22px 0 0}
+.dactions .wide{grid-column:1/-1}
+.desc{margin:16px 0 0 48px;padding:12px 14px;background:var(--soft);font-size:15px;line-height:1.5}
+.desc.loading{color:var(--muted)}
+.desc .occ{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+.odesc{font-size:13px;color:var(--muted);margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.olinks{display:flex;gap:12px}
+.share{max-width:520px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 28px) 20px 40px}
+.share .logo{display:block;margin-bottom:22px}
+.share .stack{background:var(--stage);display:flex;flex-direction:column;gap:4px;padding:14px;margin:18px 0}
+.share .stack img{max-height:28vh;width:100%;object-fit:contain}
 
 /* Outfits */
 .folder{margin-bottom:34px}
@@ -152,7 +171,7 @@ select,input[type=text],input[type=email],input[type=password]{width:100%;border
 /* Sheet */
 .sheet{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:50;display:flex;align-items:flex-end;justify-content:center}
 .sheet[hidden]{display:none}
-.panel{background:#fff;width:100%;max-width:640px;max-height:92vh;overflow:auto;padding:20px 20px calc(24px + env(safe-area-inset-bottom,0px));border-radius:14px 14px 0 0;animation:up .22s ease-out}
+.panel{background:var(--bg);width:100%;max-width:640px;max-height:92vh;overflow:auto;padding:20px 20px calc(24px + env(safe-area-inset-bottom,0px));border-radius:14px 14px 0 0;animation:up .22s ease-out}
 @keyframes up{from{transform:translateY(30px);opacity:0}}
 @media (min-width:800px){.sheet{align-items:center}.panel{border-radius:4px}}
 .phead{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
@@ -162,7 +181,7 @@ select,input[type=text],input[type=email],input[type=password]{width:100%;border
 .tool{border:1px solid var(--line);border-radius:2px;min-width:44px;height:40px;padding:0 10px;display:grid;place-items:center;font-size:14px}
 .tool svg{width:18px;height:18px}
 .actions{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}
-.tool.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.tool.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .erwrap{background:var(--stage);max-width:420px;margin:12px auto 0;aspect-ratio:4/5}
 .erwrap canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
 .cardlinks{display:flex;gap:14px;margin-top:8px}
@@ -175,7 +194,7 @@ select,input[type=text],input[type=email],input[type=password]{width:100%;border
 .login .btn{width:100%;margin-top:22px}
 .login .err{color:var(--danger);font-size:14px;margin-top:12px;min-height:1.4em}
 
-.toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 18px;font-size:14px;z-index:60;max-width:90vw}
+.toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:11px 18px;font-size:14px;z-index:60;max-width:90vw}
 .toast[hidden]{display:none}
 
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important}.spinner{animation-duration:1.5s!important}}
@@ -197,7 +216,9 @@ const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Accessoires'];
-const STYLES = ['Freizeit','Locker','Festlich','Sport','Business','Bühne'];
+const STYLES = ['Freizeit','Locker','Festlich','Sport','Business','Show'];
+// Regenbogen-Reihenfolge für den Schrank, Schwarz/Grau/Weiß am Ende
+const COLOR_ORDER = ['Rot','Bordeaux','Rosa','Orange','Gelb','Oliv','Grün','Türkis','Blau','Marineblau','Violett','Braun','Beige','Weiß','Grau','Schwarz'];
 const SEASONS = ['Sommer','Übergang','Winter'];
 const COLORS = {Schwarz:'#1a1a1a',Weiß:'#ffffff',Grau:'#9a9a9a',Beige:'#d9c7a7',Braun:'#7a4f2b',Rot:'#c62828',Bordeaux:'#6d1a2a',Rosa:'#f2a7c3',
   Orange:'#ef7d1a',Gelb:'#f3cd21',Grün:'#2f8a4e',Oliv:'#6f6b2d',Türkis:'#23b5a8',Blau:'#3a72d6',Marineblau:'#1d2b4f',Violett:'#7b3fa0'};
@@ -273,15 +294,21 @@ async function boot(){
     app.innerHTML = `<div class="login"><div><span class="logo">Gwandkastl</span><p>Fast fertig: Trage in <b>index.html</b> ganz oben im Skript deine Supabase-Projekt-URL und deinen Key ein. Die Schritte stehen in ANLEITUNG.md.</p></div></div>`;
     return;
   }
+  const shareToken=new URLSearchParams(location.search).get('s');
+  if(shareToken){ renderShare(shareToken); return; }
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ S.user=null; renderLogin(); } });
-  const { data:{ session } } = await sb.auth.getSession();
-  if(session){ S.user=session.user; await start(); } else renderLogin();
+  let session=null;
+  try{ ({ data:{ session } } = await sb.auth.getSession()); }catch{}
+  if(session){ S.user=session.user; await start(); }
+  else if(!navigator.onLine && loadSnapshot()){ goOffline(); }
+  else renderLogin();
 }
 async function start(){
   app.innerHTML = `<div class="login"><div class="spinner"></div></div>`;
   for(let attempt=0; attempt<4; attempt++){
-    try{ await loadAll(); render(); runPending(); return; }
+    try{ await loadAll(); saveSnapshot(); setBg('offline',null); render(); runPending(); return; }
     catch(e){
+      if((!navigator.onLine || /fetch|network|load failed/i.test(e.message||'')) && loadSnapshot()){ goOffline(); return; }
       // Frisch ausgestellte Anmeldung kann Sekundenbruchteile "aus der Zukunft" kommen – kurz warten und nochmal
       if(/future|iat/i.test(e.message||'') && attempt<3){ await new Promise(r=>setTimeout(r,1500)); continue; }
       console.error(e);
@@ -311,6 +338,21 @@ function renderLogin(){
 }
 
 /* ---------------- Daten ---------------- */
+/* ---- Offline: letzter Stand im Browser ---- */
+function saveSnapshot(){
+  try{ localStorage.setItem('gk-snap', JSON.stringify({user:{id:S.user.id,email:S.user.email,user_metadata:S.user.user_metadata}, items:S.items, folders:S.folders, outfits:S.outfits, urls:S.urls})); }catch{}
+}
+function loadSnapshot(){
+  try{ const s=JSON.parse(localStorage.getItem('gk-snap')||'null'); if(!s) return false;
+    if(S.user && s.user.id!==S.user.id) return false;
+    S.user=S.user||s.user; S.items=s.items; S.folders=s.folders; S.outfits=s.outfits; S.urls=s.urls||{}; S.urlTime=Date.now(); return true; }
+  catch{ return false; }
+}
+function goOffline(){
+  S.offline=true; render();
+  setBg('offline',{text:'Offline: Du siehst den letzten Stand. Hinzufügen und Ändern geht wieder mit Internet.', p:null, err:true});
+  addEventListener('online', ()=>location.reload(), {once:true});
+}
 async function loadAll(){
   const [it,fo,ou] = await Promise.all([
     sb.from('items').select('*').order('created_at'),
@@ -356,7 +398,8 @@ function viewSchrank(){
   if(!S.items.length) return `<section class="empty"><h1>Dein Schrank ist noch leer</h1>
     <p>Fotografiere ein Kleidungsstück. Freistellen und Einordnen passieren automatisch.</p>
     <button class="btn" data-a="nav" data-v="add">Erstes Teil hinzufügen</button></section>`;
-  const list = filtered().slice().reverse();
+  const co=(c)=>{ const i=COLOR_ORDER.indexOf(c); return i<0?99:i; };
+  const list = filtered().slice().sort((a,b)=> co(a.color)-co(b.color) || CATS.indexOf(a.category)-CATS.indexOf(b.category) || (b.created_at>a.created_at?1:-1));
   const nf = Object.values(S.f).reduce((a,s)=>a+s.size,0);
   return `<div class="head"><h1>Schrank</h1><span class="count">${list.length===S.items.length?`${list.length} Teile`:`${list.length} von ${S.items.length}`}</span>
     <button class="btn ghost sm push" data-a="ftoggle" aria-expanded="${S.filterOpen}">Filter${nf?` (${nf})`:''}</button></div>
@@ -446,10 +489,23 @@ function setStep(q,msg){ q.step=msg; const el=document.querySelector(`[data-card
 
 async function processOne(q){
   const src = await fileToCanvas(q.file, 1600);
-  setStep(q,'Wird erkannt …');
-  let rec=null;
-  try{ rec = await gemini(photoB64(src,1024,false), true, ()=>setStep(q,'Wartet auf die Erkennung …')); }
-  catch(e){ console.warn('Erkennung nicht verfügbar', e); q.recErr=e.message; }
+  let rec=q.preset||null;
+  if(!rec){
+    setStep(q,'Wird erkannt …');
+    try{
+      const r = await gemini({task:'detect', image:photoB64(src,1024,false)}, ()=>setStep(q,'Wartet auf die Erkennung …'));
+      const list=(Array.isArray(r.items)?r.items:[]).map(cleanRec).slice(0,8);
+      if(list.length){
+        rec=list[0];
+        if(list.length>1){   // weitere Teile auf demselben Foto: eigene Karten
+          const extra=list.slice(1).map((p,k)=>({id:crypto.randomUUID(), file:q.file, sig:q.sig+'#'+(k+1), status:'wait', step:'', keep:true,
+            cat:'T-Shirt', color:'', styles:[], seasons:[], dup:null, preset:p}));
+          S.queue.splice(S.queue.indexOf(q)+1, 0, ...extra);
+          toast(`${list.length} Teile auf dem Foto erkannt`);
+        }
+      }else q.recErr='Kein Kleidungsstück erkannt';
+    }catch(e){ console.warn('Erkennung nicht verfügbar', e); q.recErr=e.message; }
+  }
   const work = rec?.box ? cropToBox(src, rec.box) : src;
   setStep(q,'Wird freigestellt …');
   const remove = await getRemover();
@@ -480,12 +536,12 @@ function getRemover(){
 const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
 const GEM_GAP=6500;              // Gratis-Tarif: max. ~10 Anfragen pro Minute
 let gemNext=0, gemChain=Promise.resolve();
-function gemini(b64, withBox, onWait){
+function gemini(body, onWait){
   const run = gemChain.then(async()=>{
     const wait=gemNext-Date.now();
     if(wait>0){ onWait?.(); await sleep(wait); }
     gemNext=Date.now()+GEM_GAP;
-    const {data,error}=await sb.functions.invoke('classify',{body:{image:b64, withBox}});
+    const {data,error}=await sb.functions.invoke('classify',{body});
     if(error || !data || data.error){
       const status=error?.context?.status;
       let code=data?.error||'';
@@ -495,7 +551,7 @@ function gemini(b64, withBox, onWait){
       if(err.rate) gemNext=Date.now()+60000;
       throw err;
     }
-    return cleanRec(data);
+    return data;
   });
   gemChain = run.catch(()=>{});
   return run;
@@ -552,7 +608,7 @@ async function runPending(){
       try{
         const {data:blob,error:dErr}=await sb.storage.from(BUCKET).download(it.image_path);
         if(dErr) throw dErr;
-        const r=await gemini(photoB64(await blobToCanvas(blob),768,true), false);
+        const r=cleanRec(await gemini({task:'classify', image:photoB64(await blobToCanvas(blob),768,true)}));
         const {data,error}=await sb.from('items').update({category:r.category,color:r.color,styles:r.styles,seasons:r.seasons,pending:false}).eq('id',it.id).select().single();
         if(error) throw error;
         Object.assign(it,data); done++;
@@ -575,7 +631,7 @@ async function runPending(){
 }
 // Fortschrittsbalken oben
 function setBg(key,val){ if(val) S.bg[key]=val; else delete S.bg[key]; updateBgBar(); }
-function bgActive(){ return S.bg.queue || S.bg.recog || null; }
+function bgActive(){ return S.bg.backup || S.bg.queue || S.bg.recog || S.bg.ai || S.bg.offline || null; }
 function bgBarHTML(){
   const b=bgActive();
   return `<div class="bgbar ${b?.err?'err':''}" id="bgbar" ${b?'':'hidden'} role="status"><span id="bgtext">${esc(b?.text||'')}</span><div class="track"><i class="fill ${b&&b.p==null?'indet':''}" id="bgfill" style="width:${b?Math.max(4,Math.round((b.p||0)*100)):0}%"></i></div></div>`;
@@ -606,6 +662,8 @@ function renderMenu(){
     body=`<div class="field"><h3>Dein Name</h3><div class="inline"><input id="m-name" type="text" value="${esc(userName())}" aria-label="Dein Name"><button class="btn sm" data-a="m-name">Speichern</button></div></div>
       <div class="menu">
         <button class="mitem" data-a="m-recog" ${S.items.length?'':'disabled'}>Alle neu erkennen<span class="muted small">Ordnet deine Teile mit der KI neu ein</span></button>
+        <button class="mitem" data-a="m-backup" ${S.items.length?'':'disabled'}>Sicherung herunterladen<span class="muted small">Alle Fotos und Daten als ZIP-Datei</span></button>
+        <label class="mitem" style="cursor:pointer">Aus Sicherung wiederherstellen<span class="muted small">ZIP-Datei auswählen, doppelte Teile werden übersprungen</span><input type="file" accept=".zip,application/zip" data-c="restore" hidden></label>
         ${isAdmin()?`<a class="mitem" href="https://supabase.com/dashboard/project/${PROJECT_REF}/auth/users" target="_blank" rel="noopener">Nutzer anlegen<span class="muted small">Öffnet die Nutzerverwaltung in Supabase</span></a>`:''}
         <button class="mitem" data-a="logout">Abmelden<span class="muted small">${esc(S.user?.email||'')}</span></button>
       </div>`;
@@ -622,6 +680,98 @@ async function saveName(btn){
   btn.disabled=false;
   if(error){ toast('Name konnte nicht gespeichert werden'); return; }
   S.user=data.user; render(); renderMenu(); toast('Name gespeichert');
+}
+/* ---- Sicherung als ZIP ---- */
+let jszipP=null;
+function loadJSZip(){
+  if(!jszipP) jszipP=new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    s.onload=()=>res(window.JSZip); s.onerror=()=>{ jszipP=null; rej(new Error('ZIP-Werkzeug konnte nicht geladen werden')); }; document.head.appendChild(s); });
+  return jszipP;
+}
+const strip=(o)=>{ const {user_id, ...r}=o; return r; };
+async function makeBackup(){
+  closeSheet();
+  try{
+    const JSZip=await loadJSZip(), zip=new JSZip(), total=S.items.length;
+    const items=[];
+    for(let k=0;k<total;k++){
+      const it=S.items[k];
+      setBg('backup',{text:`Sicherung: Foto ${k+1} von ${total} …`, p:k/total});
+      const {data,error}=await sb.storage.from(BUCKET).download(it.image_path);
+      if(error) throw error;
+      const file='images/'+it.id+(it.image_path.endsWith('.png')?'.png':'.webp');
+      zip.file(file, data);
+      items.push({...strip(it), file});
+    }
+    zip.file('data.json', JSON.stringify({app:'Gwandkastl', version:1, created:new Date().toISOString(), owner:userName(),
+      items, folders:S.folders.map(strip), outfits:S.outfits.map(strip)}, null, 1));
+    setBg('backup',{text:'Sicherung wird gepackt …', p:null});
+    const blob=await zip.generateAsync({type:'blob'});
+    const name=`gwandkastl-sicherung-${new Date().toISOString().slice(0,10)}.zip`;
+    S.backup={blob, name}; S.sheetMode='backupready'; renderBackupReady();
+  }catch(e){ console.error(e); toast('Sicherung fehlgeschlagen: '+(e.message||e)); }
+  setBg('backup',null);
+}
+function renderBackupReady(){
+  const b=S.backup;
+  sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Sicherung fertig">
+    <div class="phead"><h2>Sicherung ist fertig</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>
+    <p>${esc(b.name)} (${(b.blob.size/1048576).toFixed(1)} MB). Speichere die Datei am besten in der Dateien-App oder in iCloud Drive.</p>
+    <div class="actions"><button class="btn" data-a="bk-save">Datei speichern</button><button class="btn ghost" data-a="close">Schließen</button></div>
+  </div>`;
+  sheet.hidden=false;
+}
+async function saveBackupFile(){
+  const b=S.backup; const file=new File([b.blob], b.name, {type:'application/zip'});
+  try{
+    if(navigator.canShare?.({files:[file]})){ await navigator.share({files:[file], title:b.name}); closeSheet(); return; }
+  }catch(e){ if(e.name==='AbortError') return; }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(b.blob); a.download=b.name; document.body.appendChild(a); a.click(); a.remove();
+  closeSheet();
+}
+async function restoreBackup(file){
+  closeSheet();
+  try{
+    setBg('backup',{text:'Sicherung wird gelesen …', p:null});
+    const JSZip=await loadJSZip(), zip=await JSZip.loadAsync(file);
+    const meta=JSON.parse(await zip.file('data.json').async('string'));
+    const haveIds=new Set(S.items.map(i=>i.id)), haveHash=new Set(S.items.map(i=>i.hash).filter(Boolean));
+    const idMap={}; let added=0, skipped=0;
+    const list=meta.items||[];
+    for(let k=0;k<list.length;k++){
+      const it=list[k];
+      setBg('backup',{text:`Wiederherstellen: ${k+1} von ${list.length} …`, p:k/list.length});
+      if(haveIds.has(it.id) || (it.hash && haveHash.has(it.hash))){ idMap[it.id]=haveIds.has(it.id)?it.id:(S.items.find(x=>x.hash===it.hash)?.id); skipped++; continue; }
+      const f=zip.file(it.file); if(!f){ skipped++; continue; }
+      const blob=await f.async('blob');
+      const ext=it.file.endsWith('.png')?'png':'webp';
+      const path=`${S.user.id}/${crypto.randomUUID()}.${ext}`;
+      const up=await sb.storage.from(BUCKET).upload(path, blob, {contentType:'image/'+ext});
+      if(up.error) throw up.error;
+      const row={image_path:path, category:it.category, color:it.color, styles:it.styles||[], seasons:it.seasons||[], hash:it.hash||null, pending:!!it.pending, edited:!!it.edited, created_at:it.created_at};
+      let res=await sb.from('items').insert({...row, id:it.id}).select().single();
+      if(res.error) res=await sb.from('items').insert(row).select().single();
+      if(res.error){ await sb.storage.from(BUCKET).remove([path]); throw res.error; }
+      S.items.push(res.data); idMap[it.id]=res.data.id; haveHash.add(it.hash); added++;
+    }
+    const fMap={};
+    for(const f of (meta.folders||[])){
+      const ex=S.folders.find(x=>x.id===f.id || x.name===f.name);
+      if(ex){ fMap[f.id]=ex.id; continue; }
+      const {data,error}=await sb.from('folders').insert({name:f.name}).select().single();
+      if(!error){ S.folders.push(data); fMap[f.id]=data.id; }
+    }
+    for(const o of (meta.outfits||[])){
+      if(S.outfits.some(x=>x.id===o.id)) continue;
+      const slots={}; for(const [k,v] of Object.entries(o.slots||{})) if(idMap[v]) slots[k]=idMap[v];
+      if(!Object.keys(slots).length) continue;
+      const {data,error}=await sb.from('outfits').insert({name:o.name, folder_id:o.folder_id?fMap[o.folder_id]||null:null, slots, description:o.description||null}).select().single();
+      if(!error) S.outfits.push(data);
+    }
+    await refreshUrls(false); saveSnapshot(); render();
+    toast(`${added} Teile wiederhergestellt, ${skipped} übersprungen`);
+  }catch(e){ console.error(e); toast('Wiederherstellen fehlgeschlagen: '+(e.message||e)); }
+  setBg('backup',null);
 }
 async function startRecognizeAll(mode){
   const targets=S.items.filter(i=>mode==='all' || !i.edited);
@@ -816,6 +966,9 @@ function renderSheet(){
   if(S.sheetMode==='outfit') return renderOutfitSheet();
   if(S.sheetMode==='erase') return renderEraseSheet();
   if(S.sheetMode==='menu') return renderMenu();
+  if(S.sheetMode==='suggest') return renderSuggest();
+  if(S.sheetMode==='sharelink') return renderShareSheet();
+  if(S.sheetMode==='backupready') return renderBackupReady();
   const e=S.edit, it=S.items.find(i=>i.id===e.id);
   sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Teil bearbeiten">
     <div class="phead"><h2>${esc(e.cat)}</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>
@@ -947,7 +1100,9 @@ function viewDress(){
     <div class="chips scroll">${chip('Alle Stile',!S.d.style,'data-a="d-style" data-v=""')}${STYLES.map(s=>chip(s,S.d.style===s,`data-a="d-style" data-v="${s}"`)).join('')}</div>
     ${shown.map(rowHTML).join('')}
     ${hid.length?`<div class="hiddenrows"><span class="muted">Ausgeblendet:</span>${hid.map(s=>`<button class="chip" data-a="d-show" data-s="${s.key}">${s.label} einblenden</button>`).join('')}</div>`:''}
-    <div class="dactions"><button class="btn ghost" data-a="d-shuffle">${ICON.shuffle}Passend mischen</button><button class="btn" data-a="d-save">Outfit speichern</button></div>
+    ${S.d.desc?`<div class="desc ${S.d.desc.loading?'loading':''}" aria-live="polite">${S.d.desc.occ?`<span class="occ">${esc(S.d.desc.occ)}</span>`:''}${esc(S.d.desc.text||'')}</div>`:''}
+    <div class="dactions"><button class="btn ghost" data-a="d-shuffle">${ICON.shuffle}Passend mischen</button><button class="btn ghost" data-a="d-suggest">Vorschlagen</button>
+      <button class="btn wide" data-a="d-save">Outfit speichern</button></div>
   </div>`;
 }
 function rowHTML(s){
@@ -972,7 +1127,7 @@ function step(key,dir){
   const list=candidates(s); if(list.length<2) return;
   const it=currentItem(s,list), i=list.indexOf(it);
   S.d.sel[key]=list[(i+dir+list.length)%list.length].id;
-  S.d.anim={slot:key,dir}; render();
+  S.d.anim={slot:key,dir}; S.d.desc=null; render();
 }
 function attachSwipe(){
   document.querySelectorAll('[data-swipe]').forEach(el=>{
@@ -1002,7 +1157,59 @@ function shuffle(){
     const pick=pool[Math.floor(Math.random()*pool.length)];
     S.d.sel[key]=pick.id; chosen.push(pick);
   }
-  render();
+  render(); describeCurrent();
+}
+function currentOutfitItems(){
+  return visibleSlots().filter(s=>!S.d.hidden.has(s.key)).map(s=>currentItem(s,candidates(s))).filter(Boolean);
+}
+const brief=(i)=>({category:i.category, color:i.color, styles:i.styles||[], seasons:i.seasons||[]});
+let descRun=0;
+async function describeCurrent(){
+  const its=currentOutfitItems(); if(!its.length || S.offline) return;
+  const my=++descRun;
+  S.d.desc={loading:true, text:'Beschreibung wird geschrieben …'}; if(S.view==='dress') render();
+  try{
+    const r=await gemini({task:'describe', items:its.map(brief)});
+    if(my!==descRun) return;
+    S.d.desc=r.description?{text:r.description}:null;
+  }catch(e){ if(my!==descRun) return; S.d.desc=null; toast('Beschreibung nicht möglich: '+e.message); }
+  if(S.view==='dress') render();
+}
+const SUGGEST_CHIPS=['Büro','Brunch','Show','Sport','Abend'];
+function openSuggest(){ S.sheetMode='suggest'; renderSuggest(); setTimeout(()=>document.getElementById('sg-text')?.focus(),50); }
+function renderSuggest(){
+  sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Outfit vorschlagen">
+    <div class="phead"><h2>Outfit vorschlagen</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>
+    <div class="field"><h3>Wofür brauchst du ein Outfit?</h3><input id="sg-text" type="text" placeholder="z. B. Rock-Konzert heute Abend als Besucher"></div>
+    <div class="field"><h3>Oder schnell wählen</h3><div class="chips">${SUGGEST_CHIPS.map(c=>chip(c,false,`data-a="sg-go" data-v="${c}"`)).join('')}</div></div>
+    <div class="actions"><button class="btn" data-a="sg-go">Vorschlagen</button><button class="btn ghost" data-a="close">Abbrechen</button></div>
+  </div>`;
+  sheet.hidden=false;
+}
+async function runSuggest(occ){
+  occ=(occ||'').trim(); if(!occ){ toast('Bitte einen Anlass eingeben'); return; }
+  closeSheet();
+  const my=++descRun;
+  S.d.desc={loading:true, occ, text:'Die KI stellt dein Outfit zusammen …'}; render();
+  setBg('ai',{text:'KI stellt ein Outfit zusammen …', p:null});
+  try{
+    const list=S.items.map((i,n)=>({n, ...brief(i)}));
+    const r=await gemini({task:'outfit', occasion:occ, season:curSeason(), items:list});
+    if(my!==descRun) return;
+    const sel={}; let kleid=false;
+    for(const n of (r.picks||[])){
+      const it=S.items[n]; if(!it) continue;
+      const s=SLOTS.find(x=>x.cats.includes(it.category)); if(!s || sel[s.key]) continue;
+      sel[s.key]=it.id; if(s.key==='kleid') kleid=true;
+    }
+    if(kleid){ delete sel.oben; delete sel.unten; }
+    if(!Object.keys(sel).length) throw new Error('Kein passendes Outfit gefunden');
+    S.d.kleid=kleid; S.d.seasonOn=false; S.d.style=''; S.d.sel=sel; S.d.locked=new Set();
+    S.d.hidden=new Set(SLOTS.map(s=>s.key).filter(k=>!sel[k]));
+    saveDressPrefs();
+    S.d.desc={occ, text:r.description||''};
+  }catch(e){ if(my===descRun){ S.d.desc=null; toast('Vorschlag nicht möglich: '+e.message); } }
+  setBg('ai',null); if(S.view==='dress') render();
 }
 
 /* ---------------- Outfits ---------------- */
@@ -1043,14 +1250,15 @@ async function saveOutfit(btn){
     }
     const slots={};
     visibleSlots().filter(s=>!S.d.hidden.has(s.key)).forEach(s=>{ const it=currentItem(s,candidates(s)); if(it) slots[s.key]=it.id; });
-    const {data,error}=await sb.from('outfits').insert({name,folder_id,slots}).select().single();
+    const description=(S.d.desc && !S.d.desc.loading && S.d.desc.text) ? S.d.desc.text : null;
+    const {data,error}=await sb.from('outfits').insert({name,folder_id,slots,description}).select().single();
     if(error) throw error;
     S.outfits.push(data); closeSheet(); toast('Outfit gespeichert');
   }catch(e){ console.error(e); btn.disabled=false; toast('Speichern fehlgeschlagen: '+(e.message||e)); }
 }
 function viewOutfits(){
   if(!S.outfits.length) return `<section class="empty"><h1>Noch keine Outfits</h1>
-    <p>Stell dir unter „Anziehen“ eine Kombination zusammen und speichere sie in einem Ordner, zum Beispiel „Sonntagsbrunch“ oder „Bühne“.</p>
+    <p>Stell dir unter „Anziehen“ eine Kombination zusammen und speichere sie in einem Ordner, zum Beispiel „Sonntagsbrunch“ oder „Show“.</p>
     <button class="btn" data-a="nav" data-v="dress">Zum Anziehen</button></section>`;
   const groups=[...S.folders.map(f=>({f,list:S.outfits.filter(o=>o.folder_id===f.id)})),
     {f:null,list:S.outfits.filter(o=>!o.folder_id || !S.folders.some(f=>f.id===o.folder_id))}].filter(g=>g.f||g.list.length);
@@ -1061,13 +1269,56 @@ function viewOutfits(){
 function oCard(o){
   const its=SLOTS.map(s=>S.items.find(i=>i.id===o.slots?.[s.key])).filter(Boolean);
   return `<div><button class="ostack" data-a="o-load" data-id="${o.id}" aria-label="${esc(o.name)} anziehen">${its.map(i=>`<img src="${url(i)}" alt="" loading="lazy">`).join('')}</button>
-    <div class="oname"><span>${esc(o.name)}</span><button class="linkbtn" data-a="o-del" data-id="${o.id}">Löschen</button></div></div>`;
+    <div class="oname"><span>${esc(o.name)}</span><span class="olinks"><button class="linkbtn" data-a="o-share" data-id="${o.id}">Teilen</button><button class="linkbtn" data-a="o-del" data-id="${o.id}">Löschen</button></span></div>
+    ${o.description?`<div class="odesc">${esc(o.description)}</div>`:''}</div>`;
+}
+const SHARE_DAYS=20;
+async function shareOutfit(id){
+  const o=S.outfits.find(x=>x.id===id); if(!o) return;
+  const parts=SLOTS.map(s=>({s, it:S.items.find(i=>i.id===o.slots?.[s.key])})).filter(x=>x.it);
+  if(!parts.length){ toast('Dieses Outfit hat keine Teile mehr'); return; }
+  try{
+    const {data:signed,error:sErr}=await sb.storage.from(BUCKET).createSignedUrls(parts.map(x=>x.it.image_path), SHARE_DAYS*86400);
+    if(sErr) throw sErr;
+    const expires=new Date(Date.now()+SHARE_DAYS*86400e3);
+    const token=crypto.randomUUID().replace(/-/g,'');
+    const data={name:o.name, owner:userName(), description:o.description||'', expires:expires.toISOString(),
+      items:parts.map((x,k)=>({slot:x.s.key, category:x.it.category, color:x.it.color, url:signed[k]?.signedUrl}))};
+    const {error}=await sb.from('shares').insert({token, outfit_id:o.id, data, expires_at:expires.toISOString()});
+    if(error) throw error;
+    const link=location.origin+location.pathname+'?s='+token;
+    S.sheetMode='sharelink'; S.shareLink={link, name:o.name, expires};
+    renderShareSheet();
+  }catch(e){ console.error(e); toast('Teilen fehlgeschlagen: '+(e.message||e)); }
+}
+function renderShareSheet(){
+  const s=S.shareLink;
+  sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Outfit teilen">
+    <div class="phead"><h2>„${esc(s.name)}“ teilen</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>
+    <p>Der Link zeigt nur dieses Outfit und gilt bis ${s.expires.toLocaleDateString('de-AT')}.</p>
+    <div class="field"><input type="text" readonly value="${esc(s.link)}" aria-label="Link"></div>
+    <div class="actions"><button class="btn" data-a="sh-send">Senden</button><button class="btn ghost" data-a="sh-copy">Link kopieren</button></div>
+  </div>`;
+  sheet.hidden=false;
+}
+async function renderShare(token){
+  app.innerHTML=`<div class="login"><div class="spinner"></div></div>`;
+  let d=null;
+  try{ const {data,error}=await sb.rpc('get_share',{t:token}); if(error) throw error; d=data; }catch(e){ console.error(e); }
+  if(!d){ app.innerHTML=`<div class="share"><span class="logo">Gwandkastl</span><h1>Link abgelaufen</h1><p class="muted" style="margin-top:12px">Dieses Outfit ist nicht mehr verfügbar. Geteilte Links gelten ${SHARE_DAYS} Tage.</p></div>`; return; }
+  document.title=d.name+' – Gwandkastl';
+  app.innerHTML=`<div class="share"><span class="logo">Gwandkastl</span>
+    <p class="muted">Outfit von ${esc(d.owner)}</p><h1>${esc(d.name)}</h1>
+    ${d.description?`<p style="margin-top:12px">${esc(d.description)}</p>`:''}
+    <div class="stack">${(d.items||[]).map(i=>`<img src="${esc(i.url)}" alt="${esc(i.category)}">`).join('')}</div>
+    <p class="muted small">Link gültig bis ${new Date(d.expires).toLocaleDateString('de-AT')}</p></div>`;
 }
 function loadOutfit(id){
   const o=S.outfits.find(x=>x.id===id); if(!o) return;
   S.d.kleid=!!o.slots.kleid; S.d.seasonOn=false; S.d.style='';
   S.d.sel={...o.slots}; S.d.locked=new Set();
   S.d.hidden=new Set(SLOTS.map(s=>s.key).filter(k=>!o.slots[k]));
+  S.d.desc=o.description?{text:o.description}:null;
   saveDressPrefs(); S.view='dress'; render(); scrollTo(0,0);
   toast(`„${o.name}“ angezogen. Der Jahreszeit-Filter ist dafür aus.`);
 }
@@ -1119,6 +1370,14 @@ const A = {
   'd-kleid':()=>{ S.d.kleid=!S.d.kleid; saveDressPrefs(); render(); },
   'd-style':(t)=>{ S.d.style=t.dataset.v; render(); },
   'd-shuffle':()=>shuffle(),
+  'd-suggest':()=>openSuggest(),
+  'sg-go':(t)=>runSuggest(t.dataset.v || document.getElementById('sg-text')?.value),
+  'o-share':(t)=>shareOutfit(t.dataset.id),
+  'sh-send':async()=>{ const s=S.shareLink; try{ if(navigator.share){ await navigator.share({title:'Outfit „'+s.name+'“', url:s.link}); return; } }catch(e){ if(e.name==='AbortError') return; }
+    try{ await navigator.clipboard.writeText(s.link); toast('Link kopiert'); }catch{ toast('Bitte den Link oben kopieren'); } },
+  'sh-copy':async()=>{ try{ await navigator.clipboard.writeText(S.shareLink.link); toast('Link kopiert'); }catch{ toast('Bitte den Link markieren und kopieren'); } },
+  'm-backup':()=>makeBackup(),
+  'bk-save':()=>saveBackupFile(),
   'd-save':()=>openOutfitSave(),
   'o-save':(t)=>saveOutfit(t),
   'o-load':(t)=>loadOutfit(t.dataset.id),
@@ -1154,8 +1413,26 @@ document.addEventListener('change',(e)=>{
   else if(c==='q-cat'||c==='e-cat'){ const o=qById(t.dataset.i); if(o){ o.cat=t.value; o.touched=true; if(c==='e-cat') renderSheet(); } }
   else if(c==='q-keep'){ const o=qById(t.dataset.i); if(o){ o.keep=t.checked; render(); } }
   else if(c==='o-folder'){ S.osave.folder=t.value; renderOutfitSheet(); }
+  else if(c==='restore'){ const f=t.files?.[0]; t.value=''; if(f && confirm('Teile aus dieser Sicherung wiederherstellen? Vorhandene Teile bleiben unverändert.')) restoreBackup(f); }
 });
-document.addEventListener('keydown',(e)=>{ if(e.key==='Escape' && !sheet.hidden){ S.sheetMode==='erase' ? S.er.back() : closeSheet(); } });
+document.addEventListener('keydown',(e)=>{ if(e.key==='Enter' && e.target.id==='sg-text'){ e.preventDefault(); runSuggest(e.target.value); return; } if(e.key==='Escape' && !sheet.hidden){ S.sheetMode==='erase' ? S.er.back() : closeSheet(); } });
+
+/* ---- Hell/Dunkel nach Sonnenauf- und -untergang in Wien ---- */
+function sunTimes(d, lat=48.2082, lon=16.3738){
+  const rad=Math.PI/180, base=Date.UTC(d.getFullYear(),d.getMonth(),d.getDate());
+  const day=Math.round((base-Date.UTC(d.getFullYear(),0,1))/864e5)+1, g=2*Math.PI/365*(day-1);
+  const eq=229.18*(0.000075+0.001868*Math.cos(g)-0.032077*Math.sin(g)-0.014615*Math.cos(2*g)-0.040849*Math.sin(2*g));
+  const decl=0.006918-0.399912*Math.cos(g)+0.070257*Math.sin(g)-0.006758*Math.cos(2*g)+0.000907*Math.sin(2*g)-0.002697*Math.cos(3*g)+0.00148*Math.sin(3*g);
+  const ha=Math.acos(Math.cos(90.833*rad)/(Math.cos(lat*rad)*Math.cos(decl))-Math.tan(lat*rad)*Math.tan(decl))/rad;
+  return {rise:new Date(base+(720-4*(lon+ha)-eq)*6e4), set:new Date(base+(720-4*(lon-ha)-eq)*6e4)};
+}
+function applyTheme(){
+  const now=new Date(), {rise,set}=sunTimes(now), dark=!(now>=rise && now<set);
+  document.documentElement.dataset.theme=dark?'dark':'light';
+  document.getElementById('themecolor')?.setAttribute('content', dark?'#141414':'#ffffff');
+}
+applyTheme(); setInterval(applyTheme, 60e3);
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(e=>console.warn('Service Worker', e));
 
 boot();
 </script>
