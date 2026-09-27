@@ -143,7 +143,9 @@ textarea{font:inherit}
 
 /* Anziehen */
 .dress{max-width:560px;margin:0 auto}
-.dbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.dbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.dbar .icbtn{margin-left:auto;border:1px solid var(--line)}
+.dbar .icbtn svg{width:19px;height:19px}
 .dress .chips.scroll{margin-bottom:16px}
 .row{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;gap:4px;margin-bottom:8px}
 .arrow{width:44px;height:44px;border-radius:50%;display:grid;place-items:center}
@@ -166,7 +168,7 @@ textarea{font:inherit}
 .desc.loading{color:var(--muted)}
 .desc .occ{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
 .odesc{font-size:13px;color:var(--muted);margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.olinks{display:flex;gap:12px}
+.olinks{display:flex;flex-wrap:wrap;gap:4px 14px}
 .share{max-width:520px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 28px) 20px 40px}
 .share .logo{display:block;margin-bottom:22px}
 .share .stack{background:var(--stage);display:flex;flex-direction:column;gap:4px;padding:14px;margin:18px 0}
@@ -179,7 +181,8 @@ textarea{font:inherit}
 .ogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:18px 12px}
 .ostack{width:100%;aspect-ratio:3/4;background:var(--stage);display:flex;flex-direction:column;padding:8px;gap:2px}
 .ostack img{flex:1 1 0;min-height:0;width:100%;object-fit:contain}
-.oname{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:7px;font-size:15px;flex-wrap:wrap}
+.oname{display:flex;flex-direction:column;gap:4px;margin-top:7px;font-size:15px;min-width:0}
+.oname>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* Sheet */
 .sheet{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:50;display:flex;align-items:flex-end;justify-content:center}
@@ -241,7 +244,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '5';
+const APP_VERSION = '5.2';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Accessoires'];
 const STYLES = ['Freizeit','Locker','Festlich','Sport','Business','Show'];
@@ -288,6 +291,7 @@ const ICON = {
   rotR:I('<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>'),
   x:I('<path d="M6 6l12 12M18 6 6 18"/>'),
   chevD:I('<path d="m6 9 6 6 6-6"/>'),
+  share:I('<path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>'),
   check:I('<path d="m5 12 5 5 9-10"/>'),
   thumb:I('<path d="M7 11v9H4v-9zM7 11l4-8a2.5 2.5 0 0 1 2.5 2.5V9h5a2 2 0 0 1 2 2.3l-1.3 7A2 2 0 0 1 17.2 20H7"/>'),
 };
@@ -1205,7 +1209,7 @@ function viewDress(){
   const editO=S.d.editing && S.outfits.find(o=>o.id===S.d.editing);
   return `<div class="dress">
     ${editO?`<div class="editing"><span>Du bearbeitest „${esc(editO.name)}“</span><button class="linkbtn" data-a="d-endedit">Beenden</button></div>`:''}
-    <div class="dbar">${chip('Nur '+curSeason(),S.d.seasonOn,'data-a="d-season"')}${chip('Kleid-Modus',S.d.kleid,'data-a="d-kleid"')}</div>
+    <div class="dbar">${chip('Nur '+curSeason(),S.d.seasonOn,'data-a="d-season"')}${chip('Kleid-Modus',S.d.kleid,'data-a="d-kleid"')}<button class="icbtn" data-a="d-share" aria-label="Diese Kombination teilen" title="Teilen">${ICON.share}</button></div>
     <div class="chips scroll">${chip('Alle Stile',!S.d.style,'data-a="d-style" data-v=""')}${STYLES.map(s=>chip(s,S.d.style===s,`data-a="d-style" data-v="${s}"`)).join('')}</div>
     ${shown.map(rowHTML).join('')}
     ${hid.length?`<div class="hiddenrows"><span class="muted">Ausgeblendet:</span>${hid.map(s=>`<button class="chip" data-a="d-show" data-s="${s.key}">${s.label} einblenden</button>`).join('')}</div>`:''}
@@ -1393,23 +1397,34 @@ function oCard(o){
     ${o.description?`<div class="odesc">${esc(o.description)}</div>`:''}</div>`;
 }
 const SHARE_DAYS=20;
-async function shareOutfit(id){
-  const o=S.outfits.find(x=>x.id===id); if(!o) return;
-  const parts=SLOTS.map(s=>({s, it:S.items.find(i=>i.id===o.slots?.[s.key])})).filter(x=>x.it);
-  if(!parts.length){ toast('Dieses Outfit hat keine Teile mehr'); return; }
+async function makeShare(name, description, parts, outfitId){
   try{
     const {data:signed,error:sErr}=await sb.storage.from(BUCKET).createSignedUrls(parts.map(x=>x.it.image_path), SHARE_DAYS*86400);
     if(sErr) throw sErr;
     const expires=new Date(Date.now()+SHARE_DAYS*86400e3);
     const token=crypto.randomUUID().replace(/-/g,'');
-    const data={name:o.name, owner:userName(), description:o.description||'', expires:expires.toISOString(),
+    const data={name, owner:userName(), description:description||'', expires:expires.toISOString(),
       items:parts.map((x,k)=>({slot:x.s.key, category:x.it.category, color:x.it.color, url:signed[k]?.signedUrl}))};
-    const {error}=await sb.from('shares').insert({token, outfit_id:o.id, data, expires_at:expires.toISOString()});
+    const {error}=await sb.from('shares').insert({token, outfit_id:outfitId||null, data, expires_at:expires.toISOString()});
     if(error) throw error;
     const link=location.origin+location.pathname+'?s='+token;
-    S.sheetMode='sharelink'; S.shareLink={link, name:o.name, expires};
+    S.sheetMode='sharelink'; S.shareLink={link, name, expires};
     renderShareSheet();
   }catch(e){ console.error(e); toast('Teilen fehlgeschlagen: '+(e.message||e)); }
+}
+function shareOutfit(id){
+  const o=S.outfits.find(x=>x.id===id); if(!o) return;
+  const parts=SLOTS.map(s=>({s, it:S.items.find(i=>i.id===o.slots?.[s.key])})).filter(x=>x.it);
+  if(!parts.length){ toast('Dieses Outfit hat keine Teile mehr'); return; }
+  makeShare(o.name, o.description, parts, o.id);
+}
+// Teilen, was gerade beim Anziehen zu sehen ist – ohne zu speichern
+function shareCurrent(){
+  const parts=visibleSlots().filter(s=>!S.d.hidden.has(s.key)).map(s=>({s, it:currentItem(s,candidates(s))})).filter(x=>x.it);
+  if(!parts.length){ toast('Zuerst ein paar Teile auswählen'); return; }
+  const d=new Date(), name=`Outfit vom ${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.`;
+  const desc=(S.d.desc && !S.d.desc.loading) ? S.d.desc.text : '';
+  makeShare(name, desc, parts, null);
 }
 function renderShareSheet(){
   const s=S.shareLink;
@@ -1596,6 +1611,7 @@ const A = {
   'bulk-go':(t)=>bulkApply(t.dataset.op, t.dataset.v),
   'bulk-del':()=>deleteItems(S.items.filter(i=>S.sel.has(i.id))),
   'd-wear':()=>wearNow(),
+  'd-share':()=>shareCurrent(),
   'd-update':(t)=>updateOutfit(t),
   'd-endedit':()=>{ S.d.editing=null; render(); },
   'o-edit':(t)=>openOEdit(t.dataset.id),
@@ -1639,7 +1655,7 @@ function applyTheme(){
   document.documentElement.dataset.theme=dark?'dark':'light';
   document.getElementById('themecolor')?.setAttribute('content', dark?'#141414':'#ffffff');
 }
-applyTheme(); setInterval(applyTheme, 60e3);
+document.documentElement.dataset.theme='light';   // immer hell
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(e=>console.warn('Service Worker', e));
 
 boot();
