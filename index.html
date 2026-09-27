@@ -34,7 +34,21 @@ h2{font-weight:400;font-size:20px}
 /* Kopf & Navigation */
 .top{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.94);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
   padding:calc(env(safe-area-inset-top,0px) + 14px) 20px 12px;display:flex;align-items:center;gap:24px;border-bottom:1px solid var(--line)}
-.logo{font-weight:300;font-size:25px;letter-spacing:.01em;margin-right:auto}
+.logo{font-weight:300;font-size:25px;letter-spacing:.01em}
+.brand{display:flex;align-items:baseline;gap:8px;margin-right:auto;text-align:left;min-width:0}
+.owner{color:var(--muted);font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:inline-flex;align-items:center;gap:2px}
+.owner svg{width:16px;height:16px;align-self:center}
+.bgbar{position:absolute;left:0;right:0;bottom:-1px;transform:translateY(100%);background:#fff;border-bottom:1px solid var(--line);padding:6px 20px 8px;font-size:13px}
+.bgbar[hidden]{display:none}
+.bgbar .track{height:2px;background:var(--line);margin-top:5px;overflow:hidden;position:relative}
+.bgbar .fill{position:absolute;left:0;top:0;bottom:0;background:var(--loden);transition:width .4s}
+.bgbar .fill.indet{width:30%!important;animation:indet 1.4s ease-in-out infinite}
+@keyframes indet{from{left:-30%}to{left:100%}}
+.pend{font-size:12px;color:var(--muted);margin-top:1px}
+.menu{display:flex;flex-direction:column;margin-top:22px;border-top:1px solid var(--line)}
+.mitem{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:14px 0;border-bottom:1px solid var(--line);text-align:left;color:var(--ink);text-decoration:none;font-size:16px}
+.inline{display:flex;gap:8px}
+.inline .btn{flex:none}
 .nav{display:flex;gap:28px}
 .nav button{font-size:15px;padding:6px 0;border-bottom:1.5px solid transparent;color:var(--muted)}
 .nav button.on{color:var(--ink);border-color:var(--ink)}
@@ -146,6 +160,10 @@ select,input[type=text],input[type=email],input[type=password]{width:100%;border
 .tool{border:1px solid var(--line);border-radius:2px;min-width:44px;height:40px;padding:0 10px;display:grid;place-items:center;font-size:14px}
 .tool svg{width:18px;height:18px}
 .actions{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}
+.tool.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.erwrap{background:var(--stage);max-width:420px;margin:12px auto 0;aspect-ratio:4/5}
+.erwrap canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+.cardlinks{display:flex;gap:14px;margin-top:8px}
 
 /* Login */
 .login{min-height:100vh;display:grid;place-items:center;padding:24px}
@@ -172,6 +190,7 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 /* ================= EINSTELLUNGEN ================= */
 const SUPABASE_URL = 'https://tposrstmrdaatwfohapn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwb3Nyc3RtcmRhYXR3Zm9oYXBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0OTY2NTgsImV4cCI6MjEwNjA3MjY1OH0.UV4t4HWqGP-tBvbjfGZHdYgvXw5vq97o3swwXBj3FbI';
+const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
 const BUCKET = 'wardrobe';
@@ -189,53 +208,6 @@ const COLOR_REFS = {Schwarz:['#111111','#2a2a2a'],Weiß:['#f7f7f7','#ffffff','#e
 const NEUTRAL = new Set(['Schwarz','Weiß','Grau','Beige','Braun','Marineblau']);
 
 const SO='Sommer', UE='Übergang', WI='Winter', ALL=[SO,UE,WI];
-// Feine Erkennungs-Begriffe -> Kategorie + Vorschlag für Jahreszeit und Stil
-const LABELS = [
-  {p:'a t-shirt',cat:'T-Shirt',se:[SO,UE],st:['Freizeit','Locker']},
-  {p:'a tank top',cat:'T-Shirt',se:[SO],st:['Freizeit','Locker']},
-  {p:'a polo shirt',cat:'T-Shirt',se:[SO,UE],st:['Freizeit']},
-  {p:'an athletic sports shirt',cat:'T-Shirt',se:[SO,UE],st:['Sport']},
-  {p:'a formal dress shirt',cat:'Hemd/Bluse',se:ALL,st:['Business','Festlich']},
-  {p:'a casual button-up shirt',cat:'Hemd/Bluse',se:[SO,UE],st:['Freizeit','Locker']},
-  {p:'a blouse',cat:'Hemd/Bluse',se:[SO,UE],st:['Business','Festlich']},
-  {p:'a knit sweater',cat:'Pullover',se:[UE,WI],st:['Freizeit','Locker']},
-  {p:'a hoodie',cat:'Pullover',se:[UE,WI],st:['Locker','Sport']},
-  {p:'a sweatshirt',cat:'Pullover',se:[UE,WI],st:['Locker','Freizeit']},
-  {p:'a cardigan',cat:'Pullover',se:[UE],st:['Freizeit']},
-  {p:'a puffer winter jacket',cat:'Jacke/Mantel',se:[WI],st:['Freizeit']},
-  {p:'a long wool coat',cat:'Jacke/Mantel',se:[WI,UE],st:['Business','Festlich']},
-  {p:'a denim jacket',cat:'Jacke/Mantel',se:[UE],st:['Freizeit','Locker']},
-  {p:'a light rain jacket',cat:'Jacke/Mantel',se:[UE],st:['Freizeit','Sport']},
-  {p:'a leather jacket',cat:'Jacke/Mantel',se:[UE],st:['Freizeit','Bühne']},
-  {p:'a suit jacket blazer',cat:'Sakko',se:ALL,st:['Business','Festlich']},
-  {p:'blue jeans',cat:'Hose',se:[UE,WI],st:['Freizeit','Locker']},
-  {p:'chino trousers',cat:'Hose',se:[SO,UE],st:['Freizeit','Business']},
-  {p:'formal suit trousers',cat:'Hose',se:ALL,st:['Business','Festlich']},
-  {p:'jogging sweatpants',cat:'Hose',se:[UE,WI],st:['Sport','Locker']},
-  {p:'leggings',cat:'Hose',se:[UE,WI],st:['Sport']},
-  {p:'casual shorts',cat:'Kurze Hose',se:[SO],st:['Freizeit','Locker']},
-  {p:'athletic running shorts',cat:'Kurze Hose',se:[SO],st:['Sport']},
-  {p:'a skirt',cat:'Rock',se:[SO,UE],st:['Freizeit']},
-  {p:'a light summer dress',cat:'Kleid',se:[SO],st:['Freizeit','Locker']},
-  {p:'an elegant evening gown',cat:'Kleid',se:ALL,st:['Festlich']},
-  {p:'a knitted winter dress',cat:'Kleid',se:[WI,UE],st:['Freizeit']},
-  {p:'a knitted beanie hat',cat:'Kopfbedeckung',se:[WI],st:['Freizeit']},
-  {p:'a baseball cap',cat:'Kopfbedeckung',se:[SO,UE],st:['Freizeit','Sport']},
-  {p:'a straw sun hat',cat:'Kopfbedeckung',se:[SO],st:['Freizeit']},
-  {p:'a felt fedora hat',cat:'Kopfbedeckung',se:[UE,WI],st:['Festlich']},
-  {p:'sneakers',cat:'Schuhe',se:[SO,UE],st:['Freizeit','Locker']},
-  {p:'running shoes',cat:'Schuhe',se:[SO,UE],st:['Sport']},
-  {p:'leather dress shoes',cat:'Schuhe',se:ALL,st:['Business','Festlich']},
-  {p:'boots',cat:'Schuhe',se:[UE,WI],st:['Freizeit']},
-  {p:'sandals',cat:'Schuhe',se:[SO],st:['Locker']},
-  {p:'high heels',cat:'Schuhe',se:[SO,UE],st:['Festlich']},
-  {p:'a scarf',cat:'Accessoires',se:[WI,UE],st:['Freizeit']},
-  {p:'a necktie',cat:'Accessoires',se:ALL,st:['Business','Festlich']},
-  {p:'a leather belt',cat:'Accessoires',se:ALL,st:['Freizeit','Business']},
-  {p:'a handbag',cat:'Accessoires',se:ALL,st:['Freizeit']},
-  {p:'winter gloves',cat:'Accessoires',se:[WI],st:['Freizeit']},
-];
-const STAGE_PROMPTS = ['a photo of a sparkly sequined stage costume','a photo of a flashy glittering performance outfit','a photo of an ordinary plain piece of clothing'];
 
 const SLOTS = [
   {key:'kopf',  label:'Kopf',          cats:['Kopfbedeckung'],               h:'clamp(76px,11vh,120px)'},
@@ -264,6 +236,7 @@ const ICON = {
   rotL:I('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>'),
   rotR:I('<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>'),
   x:I('<path d="M6 6l12 12M18 6 6 18"/>'),
+  chevD:I('<path d="m6 9 6 6 6-6"/>'),
 };
 
 /* ---------------- Zustand ---------------- */
@@ -273,7 +246,7 @@ const S = {
   user:null, items:[], urls:{}, urlTime:0, folders:[], outfits:[],
   view:'schrank', filterOpen:false,
   f:{cats:new Set(), colors:new Set(), styles:new Set(), seasons:new Set()},
-  d:loadDressPrefs(), queue:[], mstatus:'', sheetMode:null, edit:null, osave:null,
+  d:loadDressPrefs(), queue:[], mstatus:'', sheetMode:null, edit:null, osave:null, bg:{}, menuStep:null,
 };
 function loadDressPrefs(){
   let p={}; try{ p=JSON.parse(localStorage.getItem('gk-dress')||'{}'); }catch{}
@@ -304,10 +277,15 @@ async function boot(){
 }
 async function start(){
   app.innerHTML = `<div class="login"><div class="spinner"></div></div>`;
-  try{ await loadAll(); render(); }
-  catch(e){
-    console.error(e);
-    app.innerHTML = `<div class="login"><div style="max-width:420px"><span class="logo">Gwandkastl</span><p>Die Daten konnten nicht geladen werden. Wurde <b>supabase-setup.sql</b> im SQL-Editor ausgeführt?</p><p class="muted small" style="margin-top:10px">${esc(e.message||e)}</p><button class="btn" style="margin-top:20px" onclick="location.reload()">Neu laden</button></div></div>`;
+  for(let attempt=0; attempt<4; attempt++){
+    try{ await loadAll(); render(); runPending(); return; }
+    catch(e){
+      // Frisch ausgestellte Anmeldung kann Sekundenbruchteile "aus der Zukunft" kommen – kurz warten und nochmal
+      if(/future|iat/i.test(e.message||'') && attempt<3){ await new Promise(r=>setTimeout(r,1500)); continue; }
+      console.error(e);
+      app.innerHTML = `<div class="login"><div style="max-width:420px"><span class="logo">Gwandkastl</span><p>Die Daten konnten nicht geladen werden. Wurde <b>supabase-setup.sql</b> im SQL-Editor ausgeführt?</p><p class="muted small" style="margin-top:10px">${esc(e.message||e)}</p><button class="btn" style="margin-top:20px" onclick="location.reload()">Neu laden</button></div></div>`;
+      return;
+    }
   }
 }
 function renderLogin(){
@@ -355,9 +333,9 @@ const TABS = [['schrank','Schrank','hanger'],['dress','Anziehen','shirt'],['outf
 function render(){
   if(S.items.length && Date.now()-S.urlTime > 6*3600e3){ refreshUrls(true).then(render); return; }
   const view = {schrank:viewSchrank, dress:viewDress, outfits:viewOutfits, add:viewAdd}[S.view]();
-  app.innerHTML = `<header class="top"><div class="logo">Gwandkastl</div>
+  app.innerHTML = `<header class="top"><button class="brand" data-a="menu" aria-label="Menü öffnen"><span class="logo">Gwandkastl</span><span class="owner">von ${esc(userName())}${ICON.chevD}</span></button>
     <nav class="nav">${TABS.map(t=>`<button data-a="nav" data-v="${t[0]}" class="${S.view===t[0]?'on':''}">${t[1]}</button>`).join('')}</nav>
-    <button class="icbtn" data-a="logout" aria-label="Abmelden" title="Abmelden">${ICON.logout}</button></header>
+    ${bgBarHTML()}</header>
     <main>${view}</main>
     <nav class="tabbar">${TABS.map(t=>`<button data-a="nav" data-v="${t[0]}" class="${S.view===t[0]?'on':''}">${ICON[t[2]]}<span>${t[1]}</span></button>`).join('')}</nav>`;
   if(S.view==='dress'){ attachSwipe(); S.d.anim=null; }
@@ -383,7 +361,7 @@ function viewSchrank(){
     ${S.filterOpen?filterPanel():''}
     <div class="grid">${list.map(i=>`<button class="tile" data-a="edit" data-id="${i.id}">
       <div class="ph"><img loading="lazy" src="${url(i)}" alt="${esc(i.category)}"></div>
-      <div class="meta"><span class="dot" style="background:${COLORS[i.color]||'#ccc'}"></span>${esc(i.category)}</div></button>`).join('')}</div>
+      <div class="meta"><span class="dot" style="background:${COLORS[i.color]||'#ccc'}"></span>${esc(i.category)}</div>${i.pending?'<div class="pend">Erkennung ausstehend</div>':''}</button>`).join('')}</div>
     ${list.length?'':'<p class="muted">Kein Teil passt zu diesem Filter.</p>'}`;
 }
 function filterPanel(){
@@ -415,7 +393,7 @@ function viewAdd(){
     <label class="bigbtn">${ICON.camera}<span>Foto aufnehmen</span><input type="file" accept="image/*" capture="environment" data-c="files" hidden></label>
     <label class="bigbtn">${ICON.gallery}<span>Aus Galerie wählen</span><input type="file" accept="image/*" multiple data-c="files" hidden></label>
   </div>
-  <p class="hint">Ein Teil pro Foto, am besten flach auf einem ruhigen, hellen Untergrund. Du kannst viele Fotos auf einmal wählen.</p>
+  <p class="hint">Ein Teil pro Foto, am besten flach auf einem ruhigen, hellen Untergrund. Du kannst viele Fotos auf einmal wählen, sie werden nacheinander verarbeitet.</p>
   <p class="mstatus" id="mstatus">${esc(S.mstatus)}</p>
   ${S.queue.map(qCard).join('')}
   ${done.length?`<div class="savebar"><button class="btn" data-a="q-save" ${keepN?'':'disabled'}>${keepN} ${keepN===1?'Teil':'Teile'} speichern</button>
@@ -432,8 +410,9 @@ function qCard(q){
     dup = `<div class="note">${src?`<img src="${src}" alt="">`:''}<span>Sieht aus wie ein Teil, das schon ${q.dup.item?'im Schrank':'in dieser Auswahl'} ist.</span></div>`;
   }
   return `<div class="rcard"><div><div class="ph"><img src="${q.preview}" alt="Freigestelltes Teil"></div>
-    <label class="keep"><input type="checkbox" data-c="q-keep" data-i="${q.id}" ${q.keep?'checked':''}> Übernehmen</label></div>
-    <div>${dup}${q.clsFailed?'<p class="note">Die automatische Erkennung hat nicht geklappt. Bitte selbst einordnen.</p>':''}${fieldsHTML(q,'q',q.id)}</div></div>`;
+    <label class="keep"><input type="checkbox" data-c="q-keep" data-i="${q.id}" ${q.keep?'checked':''}> Übernehmen</label>
+    <div class="cardlinks"><button class="linkbtn" data-a="q-erase" data-i="${q.id}">Radieren</button></div></div>
+    <div>${dup}${q.pending?'<p class="note">Die Erkennung ist gerade nicht erreichbar. Sie wird nach dem Speichern automatisch nachgeholt, oder du ordnest selbst ein.</p>':''}${fieldsHTML(q,'q',q.id)}</div></div>`;
 }
 function addFiles(files){
   for(const f of files){
@@ -449,32 +428,39 @@ async function processQueue(){
   let q;
   while((q = S.queue.find(x=>x.status==='wait'))){
     q.status='work'; q.step='Wird vorbereitet …';
+    queueProgress();
     if(S.view==='add') render();
     try{ await processOne(q); q.status='done'; }
     catch(e){ console.error(e); q.status='err'; q.err = e.message || 'Das Foto konnte nicht verarbeitet werden.'; }
     if(S.view==='add') render();
   }
-  processing=false; status('');
+  processing=false; status(''); setBg('queue',null); runPending();
+}
+function queueProgress(){
+  const list=S.queue.filter(x=>x.status!=='saved'), done=list.filter(x=>x.status==='done'||x.status==='err').length;
+  setBg('queue',{text:`Fotos werden verarbeitet: ${Math.min(done+1,list.length)} von ${list.length}`, p:done/list.length});
 }
 function setStep(q,msg){ q.step=msg; const el=document.querySelector(`[data-card="${q.id}"] .step`); if(el) el.textContent=msg; }
 
 async function processOne(q){
   const src = await fileToCanvas(q.file, 1600);
-  const jpg = await canvasToBlob(src, 'image/jpeg', .92);
+  setStep(q,'Wird erkannt …');
+  let rec=null;
+  try{ rec = await gemini(photoB64(src,1024,false), true, ()=>setStep(q,'Wartet auf die Erkennung …')); }
+  catch(e){ console.warn('Erkennung nicht verfügbar', e); }
+  const work = rec?.box ? cropToBox(src, rec.box) : src;
   setStep(q,'Wird freigestellt …');
   const remove = await getRemover();
-  const cutBlob = await remove(jpg);
+  const cutBlob = await remove(await canvasToBlob(work, 'image/jpeg', .92));
   setStep(q,'Wird aufbereitet …');
   const cut = await blobToCanvas(cutBlob);
-  const out = prepareCutout(cut, {straighten:true, level:true});
+  const out = prepareCutout(cut, {clean:true, straighten:true, level:true});
   q.blob = await exportImage(out);
   q.preview = URL.createObjectURL(q.blob);
-  q.color = detectColor(out);
   q.hash = dhash(out);
+  if(rec){ q.cat=rec.category; q.color=rec.color; q.styles=rec.styles; q.seasons=rec.seasons; q.pending=false; }
+  else { q.color=detectColor(out); q.pending=true; }
   if(!q.dup){ const d = findDuplicate(q); if(d){ q.dup=d; q.keep=false; } }
-  setStep(q,'Wird erkannt …');
-  try{ Object.assign(q, await classify(out)); }
-  catch(e){ console.warn('Erkennung fehlgeschlagen', e); q.clsFailed=true; }
 }
 
 /* ---- KI-Modelle (werden beim ersten Mal geladen und dann vom Browser zwischengespeichert) ---- */
@@ -482,49 +468,150 @@ let removerP=null;
 function getRemover(){
   if(!removerP) removerP = import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm').then(m=>{
     const fn = m.removeBackground || m.default;
-    const cfg = {model:'isnet_quint8', output:{format:'image/png'},
+    const cfg = {model:'isnet_fp16', output:{format:'image/png'},
       progress:(k,c,t)=>{ if(t && c<t) status(`Freisteller wird geladen (nur beim ersten Mal) … ${Math.round(c/t*100)} %`); else status(''); }};
     return (blob)=>fn(blob, cfg);
   }).catch(e=>{ removerP=null; throw new Error('Der Freisteller konnte nicht geladen werden. Internetverbindung prüfen.'); });
   return removerP;
 }
-let clipP=null;
-function getClip(){
-  if(!clipP) clipP = (async()=>{
-    const T = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1');
-    T.env.allowLocalModels = false;
-    const id = 'Xenova/clip-vit-base-patch32';
-    const progress_callback = (p)=>{ if(p.status==='progress' && p.total) status(`Erkennung wird geladen (nur beim ersten Mal) … ${Math.round(p.loaded/p.total*100)} %`); };
-    const load = async (Cls)=>{ try{ return await Cls.from_pretrained(id,{dtype:'q8',progress_callback}); } catch{ return await Cls.from_pretrained(id,{progress_callback}); } };
-    const [tok, textM, proc, visM] = await Promise.all([
-      T.AutoTokenizer.from_pretrained(id,{progress_callback}), load(T.CLIPTextModelWithProjection),
-      T.AutoProcessor.from_pretrained(id,{progress_callback}), load(T.CLIPVisionModelWithProjection)]);
-    const texts = [...LABELS.map(l=>'a photo of '+l.p), ...STAGE_PROMPTS];
-    const { text_embeds } = await textM(tok(texts,{padding:true,truncation:true}));
-    status('');
-    return {T, proc, visM, tE:text_embeds.tolist().map(normVec)};
-  })().catch(e=>{ clipP=null; throw e; });
-  return clipP;
+/* ---- Erkennung mit Gemini (über Supabase Edge Function "classify") ---- */
+const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
+const GEM_GAP=6500;              // Gratis-Tarif: max. ~10 Anfragen pro Minute
+let gemNext=0, gemChain=Promise.resolve();
+function gemini(b64, withBox, onWait){
+  const run = gemChain.then(async()=>{
+    const wait=gemNext-Date.now();
+    if(wait>0){ onWait?.(); await sleep(wait); }
+    gemNext=Date.now()+GEM_GAP;
+    const {data,error}=await sb.functions.invoke('classify',{body:{image:b64, withBox}});
+    if(error || !data || data.error){
+      const status=error?.context?.status;
+      const err=new Error(data?.error||error?.message||'Erkennung nicht erreichbar');
+      err.rate = status===429 || data?.error==='rate_limit';
+      if(err.rate) gemNext=Date.now()+60000;
+      throw err;
+    }
+    return cleanRec(data);
+  });
+  gemChain = run.catch(()=>{});
+  return run;
 }
-function normVec(v){ const n=Math.hypot(...v)||1; return v.map(x=>x/n); }
-function softmax(a){ const m=Math.max(...a); const e=a.map(x=>Math.exp(x-m)); const s=e.reduce((x,y)=>x+y,0); return e.map(x=>x/s); }
-async function classify(canvas){
-  const {T, proc, visM, tE} = await getClip();
-  const c = mk(336,336), x=c.getContext('2d');
-  x.fillStyle='#fff'; x.fillRect(0,0,336,336);
-  const s = Math.min(336/canvas.width, 336/canvas.height);
-  x.drawImage(canvas,(336-canvas.width*s)/2,(336-canvas.height*s)/2,canvas.width*s,canvas.height*s);
-  const img = await T.RawImage.fromBlob(await canvasToBlob(c,'image/jpeg',.92));
-  const { image_embeds } = await visM(await proc(img));
-  const v = normVec(image_embeds.tolist()[0]);
-  const sims = tE.map(t=>t.reduce((a,ti,k)=>a+ti*v[k],0)*100);
-  const n = LABELS.length;
-  const pl = softmax(sims.slice(0,n));
-  const best = LABELS[pl.indexOf(Math.max(...pl))];
-  const ps = softmax(sims.slice(n));
-  const styles = [...best.st];
-  if(ps[0]+ps[1] > .6 && !styles.includes('Bühne')) styles.push('Bühne');
-  return {cat:best.cat, styles, seasons:[...best.se]};
+function cleanRec(r){
+  const pick=(v,list,def)=>list.includes(v)?v:def;
+  const arr=(v,list)=>Array.isArray(v)?[...new Set(v.filter(x=>list.includes(x)))]:[];
+  return {category:pick(r.category,CATS,'T-Shirt'), color:pick(r.color,Object.keys(COLORS),'Grau'),
+    styles:arr(r.styles,STYLES), seasons:arr(r.seasons,SEASONS), box:Array.isArray(r.box)&&r.box.length===4?r.box.map(Number):null};
+}
+function photoB64(c,max,white){
+  const s=Math.min(1,max/Math.max(c.width,c.height)), o=mk(c.width*s,c.height*s), x=ctx(o);
+  if(white){ x.fillStyle='#fff'; x.fillRect(0,0,o.width,o.height); }
+  x.drawImage(c,0,0,o.width,o.height);
+  return o.toDataURL('image/jpeg',.85).split(',')[1];
+}
+// Box von Gemini: [ymin, xmin, ymax, xmax] im Bereich 0–1000
+function cropToBox(c,b){
+  let [y0,x0,y1,x1]=b;
+  if(![y0,x0,y1,x1].every(Number.isFinite) || y1<=y0 || x1<=x0) return c;
+  if((y1-y0)*(x1-x0) < 30000) return c;          // unter 3 % der Fläche: lieber nicht zuschneiden
+  const mx=(x1-x0)*.05, my=(y1-y0)*.05;
+  x0=Math.max(0,x0-mx); y0=Math.max(0,y0-my); x1=Math.min(1000,x1+mx); y1=Math.min(1000,y1+my);
+  const W=c.width/1000, H=c.height/1000;
+  return crop(c,{x:Math.round(x0*W),y:Math.round(y0*H),w:Math.round((x1-x0)*W),h:Math.round((y1-y0)*H)},0);
+}
+// Ausstehende Erkennungen im Hintergrund nachholen
+let pendingRunning=false, pendingTimer=null;
+async function runPending(){
+  if(pendingRunning || !sb || !S.user) return;
+  const failed=new Set();
+  const todo=()=>S.items.filter(i=>i.pending && !failed.has(i.id));
+  if(!todo().length) return;
+  pendingRunning=true;
+  const total=todo().length; let done=0;
+  try{
+    let it;
+    while((it=todo()[0])){
+      setBg('recog',{text:`Erkenne ${done+1} von ${total} …`, p:done/total});
+      try{
+        const {data:blob,error:dErr}=await sb.storage.from(BUCKET).download(it.image_path);
+        if(dErr) throw dErr;
+        const r=await gemini(photoB64(await blobToCanvas(blob),768,true), false);
+        const {data,error}=await sb.from('items').update({category:r.category,color:r.color,styles:r.styles,seasons:r.seasons,pending:false}).eq('id',it.id).select().single();
+        if(error) throw error;
+        Object.assign(it,data); done++;
+        if(S.view==='schrank' || S.view==='dress') render();
+      }catch(e){
+        console.warn('Erkennung fehlgeschlagen', e);
+        if(e.rate){ setBg('recog',{text:'Erkennungs-Limit erreicht. Wird später automatisch nachgeholt.', p:done/total}); await sleep(4000); break; }
+        failed.add(it.id);
+      }
+    }
+  }finally{
+    pendingRunning=false; setBg('recog',null);
+    clearTimeout(pendingTimer); pendingTimer=setTimeout(runPending, 10*60e3);
+  }
+}
+// Fortschrittsbalken oben
+function setBg(key,val){ if(val) S.bg[key]=val; else delete S.bg[key]; updateBgBar(); }
+function bgActive(){ return S.bg.queue || S.bg.recog || null; }
+function bgBarHTML(){
+  const b=bgActive();
+  return `<div class="bgbar" id="bgbar" ${b?'':'hidden'} role="status"><span id="bgtext">${esc(b?.text||'')}</span><div class="track"><i class="fill ${b&&b.p==null?'indet':''}" id="bgfill" style="width:${b?Math.max(4,Math.round((b.p||0)*100)):0}%"></i></div></div>`;
+}
+function updateBgBar(){
+  const el=document.getElementById('bgbar'); if(!el) return;
+  const b=bgActive(); el.hidden=!b; if(!b) return;
+  document.getElementById('bgtext').textContent=b.text;
+  const f=document.getElementById('bgfill'); f.classList.toggle('indet', b.p==null); f.style.width=Math.max(4,Math.round((b.p||0)*100))+'%';
+}
+
+/* ---- Menü ---- */
+const userName=()=>{ const u=S.user; if(!u) return ''; const n=u.user_metadata?.name; if(n) return n; const e=(u.email||'').split('@')[0]; return e.charAt(0).toUpperCase()+e.slice(1); };
+const isAdmin=()=>(S.user?.email||'').toLowerCase()===ADMIN_EMAIL.toLowerCase();
+const PROJECT_REF=configured?new URL(SUPABASE_URL).hostname.split('.')[0]:'';
+function openMenu(){ S.sheetMode='menu'; S.menuStep=null; renderMenu(); }
+function renderMenu(){
+  let body;
+  if(S.menuStep==='recog'){
+    const n=S.items.length, k=S.items.filter(i=>i.edited).length, min=Math.max(1,Math.ceil(n*GEM_GAP/60000));
+    body=`<p>Alle ${n} Teile werden im Hintergrund neu erkannt. Das dauert etwa ${min} ${min===1?'Minute':'Minuten'}, du kannst dabei weiter blättern.</p>
+      ${k?`<p class="muted small" style="margin-top:8px">${k} ${k===1?'Teil hast':'Teile hast'} du von Hand korrigiert.</p>`:''}
+      <div class="actions">${k?`<button class="btn" data-a="m-recog-go" data-v="skip">Korrigierte überspringen</button>`:''}
+        <button class="btn ${k?'ghost':''}" data-a="m-recog-go" data-v="all">Alle neu erkennen</button>
+        <button class="btn ghost" data-a="m-back">Abbrechen</button></div>`;
+  }else{
+    body=`<div class="field"><h3>Dein Name</h3><div class="inline"><input id="m-name" type="text" value="${esc(userName())}" aria-label="Dein Name"><button class="btn sm" data-a="m-name">Speichern</button></div></div>
+      <div class="menu">
+        <button class="mitem" data-a="m-recog" ${S.items.length?'':'disabled'}>Alle neu erkennen<span class="muted small">Ordnet deine Teile mit der KI neu ein</span></button>
+        ${isAdmin()?`<a class="mitem" href="https://supabase.com/dashboard/project/${PROJECT_REF}/auth/users" target="_blank" rel="noopener">Nutzer anlegen<span class="muted small">Öffnet die Nutzerverwaltung in Supabase</span></a>`:''}
+        <button class="mitem" data-a="logout">Abmelden<span class="muted small">${esc(S.user?.email||'')}</span></button>
+      </div>`;
+  }
+  sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Menü">
+    <div class="phead"><h2>${S.menuStep==='recog'?'Alle neu erkennen':'Gwandkastl von '+esc(userName())}</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>${body}</div>`;
+  sheet.hidden=false;
+}
+async function saveName(btn){
+  const name=document.getElementById('m-name').value.trim();
+  if(!name){ toast('Bitte einen Namen eingeben'); return; }
+  btn.disabled=true;
+  const {data,error}=await sb.auth.updateUser({data:{name}});
+  btn.disabled=false;
+  if(error){ toast('Name konnte nicht gespeichert werden'); return; }
+  S.user=data.user; render(); renderMenu(); toast('Name gespeichert');
+}
+async function startRecognizeAll(mode){
+  const targets=S.items.filter(i=>mode==='all' || !i.edited);
+  if(!targets.length){ closeSheet(); toast('Keine Teile zum Erkennen'); return; }
+  const ids=targets.map(i=>i.id);
+  try{
+    for(let i=0;i<ids.length;i+=100){
+      const {error}=await sb.from('items').update({pending:true, edited:false}).in('id',ids.slice(i,i+100));
+      if(error) throw error;
+    }
+    targets.forEach(i=>{ i.pending=true; i.edited=false; });
+    closeSheet(); render(); toast('Neuerkennung läuft im Hintergrund');
+    runPending();
+  }catch(e){ console.error(e); toast('Starten fehlgeschlagen: '+(e.message||e)); }
 }
 
 /* ---------------- Bildbearbeitung ---------------- */
@@ -588,7 +675,42 @@ function fitCanvas(c){
   const o=mk(OUT_W,OUT_H), x=ctx(o); x.imageSmoothingQuality='high';
   x.drawImage(c,(OUT_W-c.width*s)/2,(OUT_H-c.height*s)/2,c.width*s,c.height*s); return o;
 }
+// Nur die Hauptfläche behalten: Teile, die nicht am Kleidungsstück hängen (Fuß, Türschnalle …), werden entfernt.
+// Getrennte Flächen ab 30 % der größten bleiben (z. B. der zweite Schuh eines Paars).
+function keepMainParts(c){
+  const w=c.width, h=c.height, N=w*h, x=ctx(c), im=x.getImageData(0,0,w,h), d=im.data;
+  const lab=new Int32Array(N), stack=new Int32Array(N), sizes=[0];
+  let n=0;
+  for(let p=0;p<N;p++){
+    if(lab[p] || d[p*4+3]<=128) continue;
+    n++; let sp=0, cnt=0; stack[sp++]=p; lab[p]=n;
+    while(sp){
+      const q=stack[--sp]; cnt++; const qx=q%w;
+      if(qx>0     && !lab[q-1] && d[(q-1)*4+3]>128){ lab[q-1]=n; stack[sp++]=q-1; }
+      if(qx<w-1   && !lab[q+1] && d[(q+1)*4+3]>128){ lab[q+1]=n; stack[sp++]=q+1; }
+      if(q>=w     && !lab[q-w] && d[(q-w)*4+3]>128){ lab[q-w]=n; stack[sp++]=q-w; }
+      if(q<N-w    && !lab[q+w] && d[(q+w)*4+3]>128){ lab[q+w]=n; stack[sp++]=q+w; }
+    }
+    sizes.push(cnt);
+  }
+  if(n<=1) return;
+  let max=0; for(let i=1;i<=n;i++) if(sizes[i]>max) max=sizes[i];
+  const keep=new Uint8Array(n+1); for(let i=1;i<=n;i++) keep[i]=sizes[i]>=max*.3?1:0;
+  const km=new Uint8Array(N); for(let p=0;p<N;p++) if(lab[p] && keep[lab[p]]) km[p]=1;
+  const dil=dilate(km,w,h,3);
+  for(let p=0;p<N;p++) if(!dil[p]) d[p*4+3]=0;
+  x.putImageData(im,0,0);
+}
+function dilate(m,w,h,r){
+  const t=new Uint8Array(m.length), o=new Uint8Array(m.length);
+  for(let y=0;y<h;y++){ let run=0; const row=y*w;
+    for(let x=-r;x<w;x++){ const a=x+r, b=x-r-1; if(a<w && m[row+a]) run++; if(b>=0 && m[row+b]) run--; if(x>=0) t[row+x]=run>0?1:0; } }
+  for(let x=0;x<w;x++){ let run=0;
+    for(let y=-r;y<h;y++){ const a=y+r, b=y-r-1; if(a<h && t[a*w+x]) run++; if(b>=0 && t[b*w+x]) run--; if(y>=0) o[y*w+x]=run>0?1:0; } }
+  return o;
+}
 function prepareCutout(src,opt={}){
+  if(opt.clean) keepMainParts(src);
   let b=alphaBBox(src);
   if(!b || b.w<20 || b.h<20) throw new Error('Kein Kleidungsstück erkannt. Bitte auf ruhigerem Hintergrund fotografieren.');
   let c=crop(src,b,4);
@@ -654,7 +776,7 @@ async function saveItem(q){
   const path=`${S.user.id}/${crypto.randomUUID()}.${q.blob.type==='image/webp'?'webp':'png'}`;
   const up=await sb.storage.from(BUCKET).upload(path,q.blob,{contentType:q.blob.type});
   if(up.error) throw up.error;
-  const {data,error}=await sb.from('items').insert({image_path:path,category:q.cat,color:q.color,styles:q.styles,seasons:q.seasons,hash:q.hash}).select().single();
+  const {data,error}=await sb.from('items').insert({image_path:path,category:q.cat,color:q.color,styles:q.styles,seasons:q.seasons,hash:q.hash,pending:!!q.pending && !q.touched,edited:!!q.touched}).select().single();
   if(error){ await sb.storage.from(BUCKET).remove([path]); throw error; }
   S.items.push(data); S.urls[path]={url:q.preview};
 }
@@ -668,6 +790,8 @@ function openEdit(id){
 }
 function renderSheet(){
   if(S.sheetMode==='outfit') return renderOutfitSheet();
+  if(S.sheetMode==='erase') return renderEraseSheet();
+  if(S.sheetMode==='menu') return renderMenu();
   const e=S.edit, it=S.items.find(i=>i.id===e.id);
   sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Teil bearbeiten">
     <div class="phead"><h2>${esc(e.cat)}</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>
@@ -679,6 +803,8 @@ function renderSheet(){
       <button class="tool" data-a="e-rot" data-v="90" aria-label="90 Grad nach rechts drehen">${ICON.rotR}</button>
       <button class="tool" data-a="e-bright" data-v="0.9">Dunkler</button>
       <button class="tool" data-a="e-bright" data-v="1.1">Heller</button>
+      <button class="tool" data-a="e-erase">Radieren</button>
+      <button class="tool" data-a="e-clean">Reste entfernen</button>
     </div>
     ${fieldsHTML(e,'e','x')}
     <div class="actions"><button class="btn" data-a="e-save">Änderungen speichern</button><button class="btn danger" data-a="e-del">Löschen</button></div>
@@ -709,6 +835,8 @@ async function saveEdit(btn){
   btn.disabled=true;
   try{
     const patch={category:e.cat,color:e.color,styles:e.styles,seasons:e.seasons};
+    const same=(a,b)=>[...(a||[])].sort().join()===[...(b||[])].sort().join();
+    if(e.cat!==it.category || e.color!==it.color || !same(e.styles,it.styles) || !same(e.seasons,it.seasons)){ patch.edited=true; patch.pending=false; }
     if(e.blob){
       const c=await blobToCanvas(e.blob);
       const path=`${S.user.id}/${crypto.randomUUID()}.${e.blob.type==='image/webp'?'webp':'png'}`;
@@ -732,6 +860,43 @@ async function deleteItem(){
   await sb.storage.from(BUCKET).remove([it.image_path]);
   S.items=S.items.filter(i=>i.id!==it.id);
   closeSheet(); render(); toast('Teil gelöscht');
+}
+
+/* ---------------- Radiergummi ---------------- */
+const BRUSH={s:14,m:30,l:60};
+function openEraser(canvas,onDone,back){
+  S.er={canvas, stack:[], size:'m', onDone, back};
+  const cx=ctx(canvas); let last=null;
+  const pos=(e)=>{ const r=canvas.getBoundingClientRect(), k=canvas.width/r.width; return [(e.clientX-r.left)*k,(e.clientY-r.top)*k,k]; };
+  const draw=(a,b)=>{
+    cx.save(); cx.globalCompositeOperation='destination-out'; cx.fillStyle=cx.strokeStyle='#000';
+    const lw=BRUSH[S.er.size]*b[2];
+    cx.beginPath(); cx.arc(b[0],b[1],lw/2,0,Math.PI*2); cx.fill();
+    if(a!==b){ cx.lineWidth=lw; cx.lineCap='round'; cx.beginPath(); cx.moveTo(a[0],a[1]); cx.lineTo(b[0],b[1]); cx.stroke(); }
+    cx.restore();
+  };
+  canvas.onpointerdown=(e)=>{
+    e.preventDefault(); canvas.setPointerCapture?.(e.pointerId);
+    S.er.stack.push(cx.getImageData(0,0,canvas.width,canvas.height)); if(S.er.stack.length>15) S.er.stack.shift();
+    const p=pos(e); last=p; draw(p,p);
+    const u=document.getElementById('erundo'); if(u) u.disabled=false;
+  };
+  canvas.onpointermove=(e)=>{ if(!last) return; const p=pos(e); draw(last,p); last=p; };
+  canvas.onpointerup=canvas.onpointercancel=()=>{ last=null; };
+  S.sheetMode='erase'; renderEraseSheet();
+}
+function renderEraseSheet(){
+  const er=S.er;
+  sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Radieren">
+    <div class="phead"><h2>Radieren</h2><button class="icbtn" data-a="er-cancel" aria-label="Abbrechen">${ICON.x}</button></div>
+    <p class="muted small">Wische mit dem Finger über alles, was nicht zum Kleidungsstück gehört.</p>
+    <div class="erwrap" id="erhost"></div>
+    <div class="tools">${['s','m','l'].map(k=>`<button class="tool ${er.size===k?'on':''}" data-a="er-size" data-v="${k}" aria-pressed="${er.size===k}">${{s:'Fein',m:'Mittel',l:'Grob'}[k]}</button>`).join('')}
+      <button class="tool" id="erundo" data-a="er-undo" ${er.stack.length?'':'disabled'}>Rückgängig</button></div>
+    <div class="actions"><button class="btn" data-a="er-done">Fertig</button><button class="btn ghost" data-a="er-cancel">Abbrechen</button></div>
+  </div>`;
+  document.getElementById('erhost').appendChild(er.canvas);
+  sheet.hidden=false;
 }
 
 /* ---------------- Anziehen ---------------- */
@@ -888,7 +1053,12 @@ const qById = (id) => id==='x' ? S.edit : S.queue.find(q=>q.id===id);
 const rerender = (pre) => pre==='e' ? renderSheet() : render();
 const A = {
   nav:(t)=>{ S.view=t.dataset.v; render(); scrollTo(0,0); },
-  logout:()=>{ if(confirm('Abmelden?')) sb.auth.signOut(); },
+  logout:()=>{ if(confirm('Abmelden?')){ closeSheet(); sb.auth.signOut(); } },
+  menu:()=>openMenu(),
+  'm-name':(t)=>saveName(t),
+  'm-recog':()=>{ S.menuStep='recog'; renderMenu(); },
+  'm-back':()=>{ S.menuStep=null; renderMenu(); },
+  'm-recog-go':(t)=>startRecognizeAll(t.dataset.v),
   ftoggle:()=>{ S.filterOpen=!S.filterOpen; render(); },
   f:(t)=>{ const s=S.f[t.dataset.g], v=t.dataset.v; s.has(v)?s.delete(v):s.add(v); render(); },
   freset:()=>{ Object.values(S.f).forEach(s=>s.clear()); render(); },
@@ -900,6 +1070,22 @@ const A = {
   'e-rot':(t)=>{ const deg=+t.dataset.v; editImage(c=>{ const r=rotateCanvas(c,deg); const b=alphaBBox(r); return fitCanvas(b?crop(r,b,0):r); }); },
   'e-bright':(t)=>{ const g=+t.dataset.v; editImage(c=>{ gainCanvas(c,g); return c; }); },
   'e-save':(t)=>saveEdit(t),
+  'e-clean':()=>editImage(c=>{ keepMainParts(c); const b=alphaBBox(c); return fitCanvas(b?crop(c,b,0):c); }),
+  'e-erase':async()=>{
+    if(S.edit.busy) return;
+    let c; try{ c=await editCanvas(); }catch(e){ toast('Bild konnte nicht geladen werden'); return; }
+    const back=()=>{ S.sheetMode='edit'; renderSheet(); };
+    openEraser(c, async(out)=>{ S.edit.blob=await exportImage(out); S.edit.preview=URL.createObjectURL(S.edit.blob); back(); }, back);
+  },
+  'q-erase':async(t)=>{
+    const q=qById(t.dataset.i); if(!q?.blob) return;
+    const c=await blobToCanvas(q.blob);
+    openEraser(c, async(out)=>{ q.blob=await exportImage(out); q.preview=URL.createObjectURL(q.blob); q.color=detectColor(out); q.hash=dhash(out); closeSheet(); render(); }, ()=>closeSheet());
+  },
+  'er-size':(t)=>{ S.er.size=t.dataset.v; renderEraseSheet(); },
+  'er-undo':()=>{ const im=S.er.stack.pop(); if(im) ctx(S.er.canvas).putImageData(im,0,0); renderEraseSheet(); },
+  'er-cancel':()=>S.er.back(),
+  'er-done':()=>{ const c=S.er.canvas, b=alphaBBox(c); if(!b){ toast('Alles wegradiert. Tipp auf Rückgängig.'); return; } S.er.onDone(fitCanvas(crop(c,b,0))); },
   'e-del':()=>deleteItem(),
   'd-step':(t)=>step(t.dataset.s,+t.dataset.v),
   'd-lock':(t)=>{ const k=t.dataset.s; S.d.locked.has(k)?S.d.locked.delete(k):S.d.locked.add(k); render(); },
@@ -929,23 +1115,23 @@ const A = {
 };
 // Gemeinsame Feld-Aktionen für Hinzufügen (q) und Bearbeiten (e)
 for(const pre of ['q','e']){
-  A[pre+'-color']=(t)=>{ const o=qById(t.dataset.i); if(o){ o.color=t.dataset.v; rerender(pre); } };
-  A[pre+'-style']=(t)=>{ const o=qById(t.dataset.i); if(o){ o.styles=toggleIn(o.styles,t.dataset.v); rerender(pre); } };
-  A[pre+'-season']=(t)=>{ const o=qById(t.dataset.i); if(o){ o.seasons=toggleIn(o.seasons,t.dataset.v); rerender(pre); } };
+  A[pre+'-color']=(t)=>{ const o=qById(t.dataset.i); if(o){ o.color=t.dataset.v; o.touched=true; rerender(pre); } };
+  A[pre+'-style']=(t)=>{ const o=qById(t.dataset.i); if(o){ o.styles=toggleIn(o.styles,t.dataset.v); o.touched=true; rerender(pre); } };
+  A[pre+'-season']=(t)=>{ const o=qById(t.dataset.i); if(o){ o.seasons=toggleIn(o.seasons,t.dataset.v); o.touched=true; rerender(pre); } };
 }
 document.addEventListener('click',(e)=>{
-  if(e.target===sheet){ closeSheet(); return; }
+  if(e.target===sheet){ S.sheetMode==='erase' ? S.er.back() : closeSheet(); return; }
   const t=e.target.closest('[data-a]');
   if(t && !t.disabled && A[t.dataset.a]){ e.preventDefault(); A[t.dataset.a](t,e); }
 });
 document.addEventListener('change',(e)=>{
   const t=e.target, c=t.dataset.c; if(!c) return;
   if(c==='files'){ if(t.files?.length) addFiles([...t.files]); t.value=''; }
-  else if(c==='q-cat'||c==='e-cat'){ const o=qById(t.dataset.i); if(o){ o.cat=t.value; if(c==='e-cat') renderSheet(); } }
+  else if(c==='q-cat'||c==='e-cat'){ const o=qById(t.dataset.i); if(o){ o.cat=t.value; o.touched=true; if(c==='e-cat') renderSheet(); } }
   else if(c==='q-keep'){ const o=qById(t.dataset.i); if(o){ o.keep=t.checked; render(); } }
   else if(c==='o-folder'){ S.osave.folder=t.value; renderOutfitSheet(); }
 });
-document.addEventListener('keydown',(e)=>{ if(e.key==='Escape' && !sheet.hidden) closeSheet(); });
+document.addEventListener('keydown',(e)=>{ if(e.key==='Escape' && !sheet.hidden){ S.sheetMode==='erase' ? S.er.back() : closeSheet(); } });
 
 boot();
 </script>
