@@ -46,6 +46,7 @@ h2{font-weight:400;font-size:20px}
 .bgbar .fill.indet{width:30%!important;animation:indet 1.4s ease-in-out infinite}
 @keyframes indet{from{left:-30%}to{left:100%}}
 .pend{font-size:12px;color:var(--muted);margin-top:1px}
+.bgbar.err #bgtext{color:var(--danger)}
 .menu{display:flex;flex-direction:column;margin-top:22px;border-top:1px solid var(--line)}
 .mitem{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:14px 0;border-bottom:1px solid var(--line);text-align:left;color:var(--ink);text-decoration:none;font-size:16px}
 .inline{display:flex;gap:8px}
@@ -413,7 +414,7 @@ function qCard(q){
   return `<div class="rcard"><div><div class="ph"><img src="${q.preview}" alt="Freigestelltes Teil"></div>
     <label class="keep"><input type="checkbox" data-c="q-keep" data-i="${q.id}" ${q.keep?'checked':''}> Übernehmen</label>
     <div class="cardlinks"><button class="linkbtn" data-a="q-erase" data-i="${q.id}">Radieren</button></div></div>
-    <div>${dup}${q.pending?'<p class="note">Die Erkennung ist gerade nicht erreichbar. Sie wird nach dem Speichern automatisch nachgeholt, oder du ordnest selbst ein.</p>':''}${fieldsHTML(q,'q',q.id)}</div></div>`;
+    <div>${dup}${q.pending?`<p class="note">Erkennung fehlgeschlagen${q.recErr?': '+esc(q.recErr):''}. Sie wird nach dem Speichern automatisch nachgeholt, oder du ordnest selbst ein.</p>`:''}${fieldsHTML(q,'q',q.id)}</div></div>`;
 }
 function addFiles(files){
   for(const f of files){
@@ -448,7 +449,7 @@ async function processOne(q){
   setStep(q,'Wird erkannt …');
   let rec=null;
   try{ rec = await gemini(photoB64(src,1024,false), true, ()=>setStep(q,'Wartet auf die Erkennung …')); }
-  catch(e){ console.warn('Erkennung nicht verfügbar', e); }
+  catch(e){ console.warn('Erkennung nicht verfügbar', e); q.recErr=e.message; }
   const work = rec?.box ? cropToBox(src, rec.box) : src;
   setStep(q,'Wird freigestellt …');
   const remove = await getRemover();
@@ -487,8 +488,10 @@ function gemini(b64, withBox, onWait){
     const {data,error}=await sb.functions.invoke('classify',{body:{image:b64, withBox}});
     if(error || !data || data.error){
       const status=error?.context?.status;
-      const err=new Error(data?.error||error?.message||'Erkennung nicht erreichbar');
-      err.rate = status===429 || data?.error==='rate_limit';
+      let code=data?.error||'';
+      if(!code && error?.context?.json){ try{ const b=await error.context.clone().json(); code=b?.error||b?.msg||b?.message||''; }catch{} }
+      const err=new Error(errText(status,code,error?.message));
+      err.rate = status===429 || code==='rate_limit';
       if(err.rate) gemNext=Date.now()+60000;
       throw err;
     }
@@ -496,6 +499,19 @@ function gemini(b64, withBox, onWait){
   });
   gemChain = run.catch(()=>{});
   return run;
+}
+function errText(status,code,msg){
+  if(status===429 || code==='rate_limit') return 'Tageslimit von Gemini erreicht (429)';
+  if(status===401 || status===403 && !String(code).startsWith('gemini')) return 'Anmeldung abgelehnt (401): bei der Funktion „Verify JWT“ ausschalten';
+  if(status===404 && !String(code).startsWith('gemini')) return 'Funktion „classify“ nicht gefunden (404)';
+  if(code==='no_key') return 'Gemini-Key fehlt: Secret GEMINI_API_KEY anlegen';
+  if(code==='gemini_400' || code==='gemini_403') return 'Gemini-Key ungültig ('+code.slice(7)+')';
+  if(code==='gemini_404') return 'Gemini-Modell nicht gefunden: Secret GEMINI_MODEL setzen';
+  if(String(code).startsWith('gemini_')) return 'Gemini-Fehler '+code.slice(7);
+  if(code==='bad_request') return 'Bild konnte nicht gesendet werden';
+  if(code) return 'Fehler: '+code+(status?' ('+status+')':'');
+  if(!navigator.onLine) return 'Keine Internetverbindung';
+  return 'Erkennung nicht erreichbar'+(status?' ('+status+')':'')+(msg&&!status?': '+msg:'');
 }
 function cleanRec(r){
   const pick=(v,list,def)=>list.includes(v)?v:def;
@@ -527,11 +543,12 @@ async function runPending(){
   const todo=()=>S.items.filter(i=>i.pending && !failed.has(i.id));
   if(!todo().length) return;
   pendingRunning=true;
-  const total=todo().length; let done=0;
+  const total=todo().length; let done=0, tried=0, lastErr='';
   try{
     let it;
     while((it=todo()[0])){
-      setBg('recog',{text:`Erkenne ${done+1} von ${total} …`, p:done/total});
+      setBg('recog',{text:`Erkenne ${tried+1} von ${total} …`+(lastErr?`  (letzter Fehler: ${lastErr})`:''), p:tried/total});
+      tried++;
       try{
         const {data:blob,error:dErr}=await sb.storage.from(BUCKET).download(it.image_path);
         if(dErr) throw dErr;
@@ -542,9 +559,14 @@ async function runPending(){
         if(S.view==='schrank' || S.view==='dress') render();
       }catch(e){
         console.warn('Erkennung fehlgeschlagen', e);
-        if(e.rate){ setBg('recog',{text:'Erkennungs-Limit erreicht. Wird später automatisch nachgeholt.', p:done/total}); await sleep(4000); break; }
+        lastErr=e.message;
+        if(e.rate){ break; }
         failed.add(it.id);
       }
+    }
+    if(done<total){
+      setBg('recog',{text:`${done} von ${total} erkannt. Problem: ${lastErr||'unbekannt'}. Neuer Versuch in 10 Minuten.`, p:done/total, err:true});
+      await sleep(12000);
     }
   }finally{
     pendingRunning=false; setBg('recog',null);
@@ -556,11 +578,12 @@ function setBg(key,val){ if(val) S.bg[key]=val; else delete S.bg[key]; updateBgB
 function bgActive(){ return S.bg.queue || S.bg.recog || null; }
 function bgBarHTML(){
   const b=bgActive();
-  return `<div class="bgbar" id="bgbar" ${b?'':'hidden'} role="status"><span id="bgtext">${esc(b?.text||'')}</span><div class="track"><i class="fill ${b&&b.p==null?'indet':''}" id="bgfill" style="width:${b?Math.max(4,Math.round((b.p||0)*100)):0}%"></i></div></div>`;
+  return `<div class="bgbar ${b?.err?'err':''}" id="bgbar" ${b?'':'hidden'} role="status"><span id="bgtext">${esc(b?.text||'')}</span><div class="track"><i class="fill ${b&&b.p==null?'indet':''}" id="bgfill" style="width:${b?Math.max(4,Math.round((b.p||0)*100)):0}%"></i></div></div>`;
 }
 function updateBgBar(){
   const el=document.getElementById('bgbar'); if(!el) return;
   const b=bgActive(); el.hidden=!b; if(!b) return;
+  el.classList.toggle('err', !!b.err);
   document.getElementById('bgtext').textContent=b.text;
   const f=document.getElementById('bgfill'); f.classList.toggle('indet', b.p==null); f.style.width=Math.max(4,Math.round((b.p||0)*100))+'%';
 }
