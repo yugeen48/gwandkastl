@@ -49,6 +49,19 @@ h2{font-weight:400;font-size:20px}
 .owner svg{width:16px;height:16px;align-self:center}
 .bgbar{position:absolute;left:0;right:0;bottom:-1px;transform:translateY(100%);background:var(--bg);border-bottom:1px solid var(--line);padding:6px 20px 8px;font-size:13px}
 .bgbar[hidden]{display:none}
+.bgline{display:flex;align-items:center;gap:8px}
+.bgbar .charly{width:22px;height:30px}
+.bgbar:not(.withcharly) .charly{display:none}
+.charly{width:30px;height:40px;flex:none;overflow:visible}
+.charly .eyes{animation:ch-look 2.6s ease-in-out infinite}
+.charly .lid{animation:ch-blink 3.4s infinite}
+.charly .ant{animation:ch-ant 1s steps(2) infinite}
+@keyframes ch-look{0%,100%{transform:translateX(0)}20%{transform:translateX(-16px)}55%{transform:translateX(16px)}75%{transform:translateX(0)}}
+@keyframes ch-blink{0%,90%,100%{opacity:0}93%,95%{opacity:1}}
+@keyframes ch-ant{50%{opacity:.2}}
+.rcard .ph .charly{width:56px;height:76px}
+.desc.loading{display:flex;align-items:center;gap:12px}
+.desc .who{display:block;font-size:13px;font-weight:500;margin-bottom:2px}
 .bgbar .track{height:2px;background:var(--line);margin-top:5px;overflow:hidden;position:relative}
 .bgbar .fill{position:absolute;left:0;top:0;bottom:0;background:var(--loden);transition:width .4s}
 .bgbar .fill.indet{width:30%!important;animation:indet 1.4s ease-in-out infinite}
@@ -262,6 +275,25 @@ const ICON = {
   chevD:I('<path d="m6 9 6 6 6-6"/>'),
 };
 
+/* Charly – kleiner Roboter, erscheint nur während er arbeitet */
+const CHARLY=`<svg class="charly" viewBox="190 50 650 900" aria-hidden="true">
+<path d="M254,780 h128 l40,70 l-40,86 h-128 l-40,-86z M642,780 h128 l40,70 l-40,86 h-128 l-40,-86z" fill="#1F222D"/>
+<rect x="274" y="800" width="88" height="14" rx="4" fill="#FF7A00"/><rect x="662" y="800" width="88" height="14" rx="4" fill="#FF7A00"/>
+<line x1="276" y1="600" x2="212" y2="700" stroke="#8A93A0" stroke-width="30" stroke-linecap="round"/><line x1="748" y1="600" x2="812" y2="700" stroke="#8A93A0" stroke-width="30" stroke-linecap="round"/>
+<circle cx="212" cy="700" r="22" fill="#FF7A00"/><circle cx="812" cy="700" r="22" fill="#FF7A00"/>
+<path d="M322,520 h380 l26,60 v140 l-40,40 h-352 l-40,-40 v-140z" fill="#3F4454"/>
+<path d="M372,556 h280 l16,36 v104 l-24,24 h-264 l-24,-24 v-104z" fill="#C9D0D9"/>
+<path d="M420,640 l20,-24 h40 l-20,24z M470,640 l20,-24 h40 l-20,24z M520,640 l20,-24 h40 l-20,24z" fill="#FF7A00"/>
+<rect x="470" y="452" width="84" height="76" rx="10" fill="#3A3F50"/>
+<line x1="600" y1="170" x2="640" y2="96" stroke="#8A93A0" stroke-width="12" stroke-linecap="round"/><circle class="ant" cx="642" cy="90" r="18" fill="#FF7A00"/>
+<path d="M300,236 l54,-72 h316 l54,72 v150 l-46,70 h-332 l-46,-70z" fill="#3F4454"/>
+<path d="M338,246 l36,-44 h276 l36,44 v118 l-30,46 h-288 l-30,-46z" fill="#0B1220"/>
+<g class="eyes"><circle cx="430" cy="302" r="50" fill="#2FB8FF"/><circle cx="430" cy="302" r="24" fill="#000"/><circle cx="414" cy="286" r="8" fill="#fff"/>
+<circle cx="594" cy="302" r="50" fill="#2FB8FF"/><circle cx="594" cy="302" r="24" fill="#000"/><circle cx="578" cy="286" r="8" fill="#fff"/></g>
+<rect class="lid" x="370" y="246" width="120" height="112" fill="#0B1220" opacity="0"/><rect class="lid" x="534" y="246" width="120" height="112" fill="#0B1220" opacity="0"/>
+<path d="M372,226 l116,10 M652,226 l-116,10" stroke="#FF7A00" stroke-width="10" stroke-linecap="round"/>
+</svg>`;
+
 /* ---------------- Zustand ---------------- */
 const configured = !SUPABASE_URL.startsWith('HIER') && !SUPABASE_KEY.startsWith('HIER');
 const sb = configured ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
@@ -445,7 +477,7 @@ function viewAdd(){
     <button class="btn ghost" data-a="q-clear">Fertige verwerfen</button></div>`:''}`;
 }
 function qCard(q){
-  if(q.status==='wait' || q.status==='work') return `<div class="rcard" data-card="${q.id}"><div class="ph">${q.status==='work'?'<div class="spinner"></div>':''}</div>
+  if(q.status==='wait' || q.status==='work') return `<div class="rcard" data-card="${q.id}"><div class="ph">${q.status==='work'?CHARLY:''}</div>
     <div><p class="step">${q.status==='wait'?'Wartet …':esc(q.step)}</p><p class="muted small">${esc(q.file.name)}</p></div></div>`;
   if(q.status==='err') return `<div class="rcard"><div class="ph"></div><div><p>${esc(q.err)}</p><p class="muted small">${esc(q.file.name)}</p>
     <button class="linkbtn" data-a="q-remove" data-i="${q.id}" style="margin-top:8px">Entfernen</button></div></div>`;
@@ -457,7 +489,7 @@ function qCard(q){
   return `<div class="rcard"><div><div class="ph"><img src="${q.preview}" alt="Freigestelltes Teil"></div>
     <label class="keep"><input type="checkbox" data-c="q-keep" data-i="${q.id}" ${q.keep?'checked':''}> Übernehmen</label>
     <div class="cardlinks"><button class="linkbtn" data-a="q-erase" data-i="${q.id}">Radieren</button></div></div>
-    <div>${dup}${q.pending?`<p class="note">Erkennung fehlgeschlagen${q.recErr?': '+esc(q.recErr):''}. Sie wird nach dem Speichern automatisch nachgeholt, oder du ordnest selbst ein.</p>`:''}${fieldsHTML(q,'q',q.id)}</div></div>`;
+    <div>${dup}${q.pending?`<p class="note">${q.recErr?esc(q.recErr):'Charly konnte das Teil nicht erkennen'}. Er versucht es nach dem Speichern nochmal, oder du ordnest selbst ein.</p>`:''}${fieldsHTML(q,'q',q.id)}</div></div>`;
 }
 function addFiles(files){
   for(const f of files){
@@ -483,7 +515,7 @@ async function processQueue(){
 }
 function queueProgress(){
   const list=S.queue.filter(x=>x.status!=='saved'), done=list.filter(x=>x.status==='done'||x.status==='err').length;
-  setBg('queue',{text:`Fotos werden verarbeitet: ${Math.min(done+1,list.length)} von ${list.length}`, p:done/list.length});
+  setBg('queue',{text:`Charly verarbeitet Foto ${Math.min(done+1,list.length)} von ${list.length} …`, p:done/list.length, charly:true});
 }
 function setStep(q,msg){ q.step=msg; const el=document.querySelector(`[data-card="${q.id}"] .step`); if(el) el.textContent=msg; }
 
@@ -491,9 +523,9 @@ async function processOne(q){
   const src = await fileToCanvas(q.file, 1600);
   let rec=q.preset||null;
   if(!rec){
-    setStep(q,'Wird erkannt …');
+    setStep(q,'Charly schaut sich das Foto an …');
     try{
-      const r = await gemini({task:'detect', image:photoB64(src,1024,false)}, ()=>setStep(q,'Wartet auf die Erkennung …'));
+      const r = await gemini({task:'detect', image:photoB64(src,1024,false)}, ()=>setStep(q,'Charly ist gleich bei dir …'));
       const list=(Array.isArray(r.items)?r.items:[]).map(cleanRec).slice(0,8);
       if(list.length){
         rec=list[0];
@@ -501,16 +533,16 @@ async function processOne(q){
           const extra=list.slice(1).map((p,k)=>({id:crypto.randomUUID(), file:q.file, sig:q.sig+'#'+(k+1), status:'wait', step:'', keep:true,
             cat:'T-Shirt', color:'', styles:[], seasons:[], dup:null, preset:p}));
           S.queue.splice(S.queue.indexOf(q)+1, 0, ...extra);
-          toast(`${list.length} Teile auf dem Foto erkannt`);
+          toast(`Charly hat ${list.length} Teile auf dem Foto gefunden`);
         }
-      }else q.recErr='Kein Kleidungsstück erkannt';
+      }else q.recErr='Charly sieht hier kein Kleidungsstück (leer)';
     }catch(e){ console.warn('Erkennung nicht verfügbar', e); q.recErr=e.message; }
   }
   const work = rec?.box ? cropToBox(src, rec.box) : src;
-  setStep(q,'Wird freigestellt …');
+  setStep(q,'Charly schneidet das Teil aus …');
   const remove = await getRemover();
   const cutBlob = await remove(await canvasToBlob(work, 'image/jpeg', .92));
-  setStep(q,'Wird aufbereitet …');
+  setStep(q,'Charly richtet es schön her …');
   const cut = await blobToCanvas(cutBlob);
   const out = prepareCutout(cut, {clean:true, straighten:true, level:true});
   q.blob = await exportImage(out);
@@ -557,17 +589,20 @@ function gemini(body, onWait){
   return run;
 }
 function errText(status,code,msg){
-  if(status===429 || code==='rate_limit') return 'Tageslimit von Gemini erreicht (429)';
-  if(status===401 || status===403 && !String(code).startsWith('gemini')) return 'Anmeldung abgelehnt (401): bei der Funktion „Verify JWT“ ausschalten';
-  if(status===404 && !String(code).startsWith('gemini')) return 'Funktion „classify“ nicht gefunden (404)';
-  if(code==='no_key') return 'Gemini-Key fehlt: Secret GEMINI_API_KEY anlegen';
-  if(code==='gemini_400' || code==='gemini_403') return 'Gemini-Key ungültig ('+code.slice(7)+')';
-  if(code==='gemini_404') return 'Gemini-Modell nicht gefunden: Secret GEMINI_MODEL setzen';
-  if(String(code).startsWith('gemini_')) return 'Gemini-Fehler '+code.slice(7);
-  if(code==='bad_request') return 'Bild konnte nicht gesendet werden';
-  if(code) return 'Fehler: '+code+(status?' ('+status+')':'');
-  if(!navigator.onLine) return 'Keine Internetverbindung';
-  return 'Erkennung nicht erreichbar'+(status?' ('+status+')':'')+(msg&&!status?': '+msg:'');
+  code=String(code||'');
+  if(status===429 || code==='rate_limit') return 'Charly braucht eine Pause, das Gratis-Limit ist erreicht (429)';
+  if(status===401 || (status===403 && !code.startsWith('gemini'))) return 'Charly wird nicht reingelassen – bei der Funktion „Verify JWT“ ausschalten ('+status+')';
+  if(status===404 && !code.startsWith('gemini')) return 'Charly findet seinen Arbeitsplatz nicht – Funktion „classify“ fehlt (404)';
+  if(code==='no_key') return 'Charly findet seinen Schlüssel nicht – Secret GEMINI_API_KEY anlegen (no_key)';
+  if(code==='gemini_400' || code==='gemini_403') return 'Charlys Schlüssel passt nicht – Gemini-Key prüfen ('+code+')';
+  if(code==='gemini_404') return 'Charly kennt dieses Modell nicht ('+code+')';
+  if(/^gemini_5\d\d$/.test(code)) return 'Charly ist gerade überlastet, versuch\'s gleich nochmal ('+code+')';
+  if(code.startsWith('gemini_')) return 'Charly hat ein Problem bei Google ('+code+')';
+  if(code==='bad_request') return 'Charly konnte das Bild nicht empfangen (bad_request)';
+  if(code==='server') return 'Charly ist gestolpert (server)';
+  if(code) return 'Charly hat ein Problem ('+code+(status?', '+status:'')+')';
+  if(!navigator.onLine) return 'Charly hat gerade kein Internet (offline)';
+  return 'Charly ist nicht erreichbar ('+(status||msg||'unbekannt')+')';
 }
 function cleanRec(r){
   const pick=(v,list,def)=>list.includes(v)?v:def;
@@ -603,7 +638,7 @@ async function runPending(){
   try{
     let it;
     while((it=todo()[0])){
-      setBg('recog',{text:`Erkenne ${tried+1} von ${total} …`+(lastErr?`  (letzter Fehler: ${lastErr})`:''), p:tried/total});
+      setBg('recog',{text:`Charly erkennt Teil ${tried+1} von ${total} …`+(lastErr?`  Zuletzt: ${lastErr}`:''), p:tried/total, charly:true});
       tried++;
       try{
         const {data:blob,error:dErr}=await sb.storage.from(BUCKET).download(it.image_path);
@@ -621,7 +656,7 @@ async function runPending(){
       }
     }
     if(done<total){
-      setBg('recog',{text:`${done} von ${total} erkannt. Problem: ${lastErr||'unbekannt'}. Neuer Versuch in 10 Minuten.`, p:done/total, err:true});
+      setBg('recog',{text:`Charly hat ${done} von ${total} geschafft. ${lastErr||'Unbekanntes Problem'}. Er versucht es in 10 Minuten nochmal.`, p:done/total, err:true});
       await sleep(12000);
     }
   }finally{
@@ -634,12 +669,12 @@ function setBg(key,val){ if(val) S.bg[key]=val; else delete S.bg[key]; updateBgB
 function bgActive(){ return S.bg.backup || S.bg.queue || S.bg.recog || S.bg.ai || S.bg.offline || null; }
 function bgBarHTML(){
   const b=bgActive();
-  return `<div class="bgbar ${b?.err?'err':''}" id="bgbar" ${b?'':'hidden'} role="status"><span id="bgtext">${esc(b?.text||'')}</span><div class="track"><i class="fill ${b&&b.p==null?'indet':''}" id="bgfill" style="width:${b?Math.max(4,Math.round((b.p||0)*100)):0}%"></i></div></div>`;
+  return `<div class="bgbar ${b?.err?'err':''} ${b?.charly?'withcharly':''}" id="bgbar" ${b?'':'hidden'} role="status"><div class="bgline">${CHARLY}<span id="bgtext">${esc(b?.text||'')}</span></div><div class="track"><i class="fill ${b&&b.p==null?'indet':''}" id="bgfill" style="width:${b?Math.max(4,Math.round((b.p||0)*100)):0}%"></i></div></div>`;
 }
 function updateBgBar(){
   const el=document.getElementById('bgbar'); if(!el) return;
   const b=bgActive(); el.hidden=!b; if(!b) return;
-  el.classList.toggle('err', !!b.err);
+  el.classList.toggle('err', !!b.err); el.classList.toggle('withcharly', !!b.charly);
   document.getElementById('bgtext').textContent=b.text;
   const f=document.getElementById('bgfill'); f.classList.toggle('indet', b.p==null); f.style.width=Math.max(4,Math.round((b.p||0)*100))+'%';
 }
@@ -653,7 +688,7 @@ function renderMenu(){
   let body;
   if(S.menuStep==='recog'){
     const n=S.items.length, k=S.items.filter(i=>i.edited).length, min=Math.max(1,Math.ceil(n*GEM_GAP/60000));
-    body=`<p>Alle ${n} Teile werden im Hintergrund neu erkannt. Das dauert etwa ${min} ${min===1?'Minute':'Minuten'}, du kannst dabei weiter blättern.</p>
+    body=`<p>Charly schaut sich alle ${n} Teile im Hintergrund neu an. Das dauert etwa ${min} ${min===1?'Minute':'Minuten'}, du kannst dabei weiter blättern.</p>
       ${k?`<p class="muted small" style="margin-top:8px">${k} ${k===1?'Teil hast':'Teile hast'} du von Hand korrigiert.</p>`:''}
       <div class="actions">${k?`<button class="btn" data-a="m-recog-go" data-v="skip">Korrigierte überspringen</button>`:''}
         <button class="btn ${k?'ghost':''}" data-a="m-recog-go" data-v="all">Alle neu erkennen</button>
@@ -661,7 +696,7 @@ function renderMenu(){
   }else{
     body=`<div class="field"><h3>Dein Name</h3><div class="inline"><input id="m-name" type="text" value="${esc(userName())}" aria-label="Dein Name"><button class="btn sm" data-a="m-name">Speichern</button></div></div>
       <div class="menu">
-        <button class="mitem" data-a="m-recog" ${S.items.length?'':'disabled'}>Alle neu erkennen<span class="muted small">Ordnet deine Teile mit der KI neu ein</span></button>
+        <button class="mitem" data-a="m-recog" ${S.items.length?'':'disabled'}>Alle neu erkennen<span class="muted small">Charly sortiert deine Teile neu ein</span></button>
         <button class="mitem" data-a="m-backup" ${S.items.length?'':'disabled'}>Sicherung herunterladen<span class="muted small">Alle Fotos und Daten als ZIP-Datei</span></button>
         <label class="mitem" style="cursor:pointer">Aus Sicherung wiederherstellen<span class="muted small">ZIP-Datei auswählen, doppelte Teile werden übersprungen</span><input type="file" accept=".zip,application/zip" data-c="restore" hidden></label>
         ${isAdmin()?`<a class="mitem" href="https://supabase.com/dashboard/project/${PROJECT_REF}/auth/users" target="_blank" rel="noopener">Nutzer anlegen<span class="muted small">Öffnet die Nutzerverwaltung in Supabase</span></a>`:''}
@@ -783,7 +818,7 @@ async function startRecognizeAll(mode){
       if(error) throw error;
     }
     targets.forEach(i=>{ i.pending=true; i.edited=false; });
-    closeSheet(); render(); toast('Neuerkennung läuft im Hintergrund');
+    closeSheet(); render(); toast('Charly legt los');
     runPending();
   }catch(e){ console.error(e); toast('Starten fehlgeschlagen: '+(e.message||e)); }
 }
@@ -1100,7 +1135,9 @@ function viewDress(){
     <div class="chips scroll">${chip('Alle Stile',!S.d.style,'data-a="d-style" data-v=""')}${STYLES.map(s=>chip(s,S.d.style===s,`data-a="d-style" data-v="${s}"`)).join('')}</div>
     ${shown.map(rowHTML).join('')}
     ${hid.length?`<div class="hiddenrows"><span class="muted">Ausgeblendet:</span>${hid.map(s=>`<button class="chip" data-a="d-show" data-s="${s.key}">${s.label} einblenden</button>`).join('')}</div>`:''}
-    ${S.d.desc?`<div class="desc ${S.d.desc.loading?'loading':''}" aria-live="polite">${S.d.desc.occ?`<span class="occ">${esc(S.d.desc.occ)}</span>`:''}${esc(S.d.desc.text||'')}</div>`:''}
+    ${S.d.desc?(S.d.desc.loading
+      ?`<div class="desc loading" aria-live="polite">${CHARLY}<span>${S.d.desc.occ?`<span class="occ">${esc(S.d.desc.occ)}</span>`:''}${esc(S.d.desc.text)}</span></div>`
+      :`<div class="desc" aria-live="polite">${S.d.desc.occ?`<span class="occ">${esc(S.d.desc.occ)}</span>`:''}<span class="who">Charly</span>${esc(S.d.desc.text||'')}</div>`):''}
     <div class="dactions"><button class="btn ghost" data-a="d-shuffle">${ICON.shuffle}Passend mischen</button><button class="btn ghost" data-a="d-suggest">Vorschlagen</button>
       <button class="btn wide" data-a="d-save">Outfit speichern</button></div>
   </div>`;
@@ -1167,12 +1204,12 @@ let descRun=0;
 async function describeCurrent(){
   const its=currentOutfitItems(); if(!its.length || S.offline) return;
   const my=++descRun;
-  S.d.desc={loading:true, text:'Beschreibung wird geschrieben …'}; if(S.view==='dress') render();
+  S.d.desc={loading:true, text:'Charly schaut sich die Kombination an …'}; if(S.view==='dress') render();
   try{
     const r=await gemini({task:'describe', items:its.map(brief)});
     if(my!==descRun) return;
     S.d.desc=r.description?{text:r.description}:null;
-  }catch(e){ if(my!==descRun) return; S.d.desc=null; toast('Beschreibung nicht möglich: '+e.message); }
+  }catch(e){ if(my!==descRun) return; S.d.desc=null; toast(e.message); }
   if(S.view==='dress') render();
 }
 const SUGGEST_CHIPS=['Büro','Brunch','Show','Sport','Abend'];
@@ -1190,8 +1227,8 @@ async function runSuggest(occ){
   occ=(occ||'').trim(); if(!occ){ toast('Bitte einen Anlass eingeben'); return; }
   closeSheet();
   const my=++descRun;
-  S.d.desc={loading:true, occ, text:'Die KI stellt dein Outfit zusammen …'}; render();
-  setBg('ai',{text:'KI stellt ein Outfit zusammen …', p:null});
+  S.d.desc={loading:true, occ, text:'Charly stöbert in deinem Schrank …'}; render();
+  setBg('ai',{text:'Charly stellt dein Outfit zusammen …', p:null, charly:true});
   try{
     const list=S.items.map((i,n)=>({n, ...brief(i)}));
     const r=await gemini({task:'outfit', occasion:occ, season:curSeason(), items:list});
@@ -1203,12 +1240,12 @@ async function runSuggest(occ){
       sel[s.key]=it.id; if(s.key==='kleid') kleid=true;
     }
     if(kleid){ delete sel.oben; delete sel.unten; }
-    if(!Object.keys(sel).length) throw new Error('Kein passendes Outfit gefunden');
+    if(!Object.keys(sel).length) throw new Error('Charly hat nichts Passendes gefunden (keine Auswahl)');
     S.d.kleid=kleid; S.d.seasonOn=false; S.d.style=''; S.d.sel=sel; S.d.locked=new Set();
     S.d.hidden=new Set(SLOTS.map(s=>s.key).filter(k=>!sel[k]));
     saveDressPrefs();
     S.d.desc={occ, text:r.description||''};
-  }catch(e){ if(my===descRun){ S.d.desc=null; toast('Vorschlag nicht möglich: '+e.message); } }
+  }catch(e){ if(my===descRun){ S.d.desc=null; toast(e.message); } }
   setBg('ai',null); if(S.view==='dress') render();
 }
 
@@ -1309,7 +1346,7 @@ async function renderShare(token){
   document.title=d.name+' – Gwandkastl';
   app.innerHTML=`<div class="share"><span class="logo">Gwandkastl</span>
     <p class="muted">Outfit von ${esc(d.owner)}</p><h1>${esc(d.name)}</h1>
-    ${d.description?`<p style="margin-top:12px">${esc(d.description)}</p>`:''}
+    ${d.description?`<p style="margin-top:12px"><span class="muted small" style="display:block">Charly meint</span>${esc(d.description)}</p>`:''}
     <div class="stack">${(d.items||[]).map(i=>`<img src="${esc(i.url)}" alt="${esc(i.category)}">`).join('')}</div>
     <p class="muted small">Link gültig bis ${new Date(d.expires).toLocaleDateString('de-AT')}</p></div>`;
 }

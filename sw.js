@@ -1,5 +1,5 @@
 // Gwandkastl Service Worker – App offline starten, Fotos zwischenspeichern
-const APP = 'gk-app-v1', CDN = 'gk-cdn-v1', IMG = 'gk-img';
+const APP = 'gk-app-v2', CDN = 'gk-cdn-v1', IMG = 'gk-img';
 const SHELL = ['./', './index.html', './manifest.json', './apple-touch-icon.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
