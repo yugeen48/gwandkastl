@@ -1214,18 +1214,18 @@ function currentItem(slot,list){
   return it;
 }
 /* ---------------- Reisemodus ---------------- */
-function poolFor(slot){ const se=curSeason(); return S.items.filter(i=>slot.cats.includes(i.category)&&(!(i.seasons||[]).length||i.seasons.includes(se))); }
-function planTrip(n){
-  const use={}, plan=[], seen=new Set(), se=curSeason();
+function poolFor(slot,se=curSeason()){ return S.items.filter(i=>slot.cats.includes(i.category)&&(!(i.seasons||[]).length||i.seasons.includes(se))); }
+function planTrip(n,se=curSeason()){
+  const use={}, plan=[], seen=new Set();
   const slotOf=(k)=>SLOTS.find(x=>x.key===k);
-  const hasKleid=poolFor(slotOf('kleid')).length>0;
+  const hasKleid=poolFor(slotOf('kleid'),se).length>0;
   for(let d=0;d<n;d++){
     let best=null;
     for(let attempt=0;attempt<8;attempt++){
       const kleid=hasKleid && Math.random()<.25, chosen=[];
       const keys=(kleid?['kleid','jacke','schuhe']:['oben','unten','jacke','schuhe']).filter(k=>k!=='jacke'||se!==SO);
       for(const key of keys){
-        const list=poolFor(slotOf(key)); if(!list.length) continue;
+        const list=poolFor(slotOf(key),se); if(!list.length) continue;
         const bd=list.map(i=>badness(i,chosen)), mn=Math.min(...bd);
         let pool=list.filter((i,k)=>bd[k]===mn);
         const lo=Math.min(...pool.map(i=>use[i.id]||0)); pool=pool.filter(i=>(use[i.id]||0)===lo);
@@ -1239,14 +1239,38 @@ function planTrip(n){
   }
   return plan;
 }
+async function tripWeather(dest,n){
+  const g=await (await fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&language=de&name='+encodeURIComponent(dest))).json();
+  const p=g.results?.[0]; if(!p) return null;
+  const d=Math.min(n,16);
+  const j=await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.latitude}&longitude=${p.longitude}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=${d}`)).json();
+  const mx=j.daily.temperature_2m_max, mn=j.daily.temperature_2m_min, pr=j.daily.precipitation_probability_max;
+  const avg=(a)=>a.reduce((x,y)=>x+y,0)/a.length;
+  const hi=avg(mx), lo=avg(mn), rain=Math.max(...pr.map(x=>x||0));
+  const season=hi>=22?SO:hi<=10?WI:UE;
+  return {name:p.name, season, text:`${p.name}: ${Math.round(lo)}–${Math.round(hi)} °C, ${rain>=60?'Regen wahrscheinlich':rain>=30?'vereinzelt Regen':'meist trocken'}`, short:d<n};
+}
+const syncTrip=()=>{ const el=document.getElementById('t-dest'); if(el) S.trip.dest=el.value; };
+async function goTrip(btn){
+  syncTrip(); const t=S.trip, dest=(t.dest||'').trim();
+  btn.disabled=true; t.wx=null; t.note='';
+  let season=curSeason();
+  if(dest){
+    try{ const w=await tripWeather(dest,t.days); if(w){ t.wx=w; season=w.season; if(w.short) t.note='Wetter gilt für die ersten 16 Tage.'; } else t.note='Ziel nicht gefunden, ich nehme die Jahreszeit von hier.'; }
+    catch(e){ t.note='Wetter gerade nicht abrufbar, ich nehme die Jahreszeit von hier.'; }
+  }
+  t.season=season; t.plan=planTrip(t.days,season); renderTravel();
+}
 function renderTravel(){
   const t=S.trip||(S.trip={days:3,plan:null}), n=t.days;
   const plan=t.plan?`<div class="field">${t.plan.map((its,d)=>`<div style="display:flex;align-items:center;gap:8px;margin:8px 0"><strong style="min-width:48px">Tag ${d+1}</strong><div style="display:flex;gap:6px;overflow-x:auto">${its.map(i=>`<img src="${url(i)}" alt="${esc(i.category)}" style="height:64px;width:auto;border-radius:8px;background:#eee" draggable="false">`).join('')}</div></div>`).join('')}
       <p style="margin-top:12px"><strong>Unterwäsche:</strong> ${n+1} Stück<br><strong>Socken:</strong> ${n+1} Stück</p></div>`:'';
   sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Reisemodus">
     <div class="phead"><h2>Reisemodus</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>
+    <div class="field"><h3>Wohin geht's?</h3><input id="t-dest" type="text" placeholder="z. B. Hawaii, Kopenhagen" value="${esc(t.dest||'')}" aria-label="Reiseziel"></div>
     <div class="field"><h3>Wie viele Tage?</h3><div class="inline" style="align-items:center;gap:14px">
       <button class="btn ghost sm" data-a="t-dec" aria-label="Einen Tag weniger" ${n<=1?'disabled':''}>−</button><strong style="font-size:1.4rem;min-width:28px;text-align:center">${n}</strong><button class="btn ghost sm" data-a="t-inc" aria-label="Einen Tag mehr" ${n>=14?'disabled':''}>+</button></div></div>
+    ${t.wx?`<p class="wx" style="margin:0 0 6px">${esc(t.wx.text)} · ich packe für ${esc(t.season)}</p>`:''}${t.note?`<p class="wx" style="margin:0 0 6px">${esc(t.note)}</p>`:''}
     ${plan}
     <div class="actions"><button class="btn" data-a="t-go">${t.plan?'Neu würfeln':'Packliste erstellen'}</button><button class="btn ghost" data-a="m-menu">Zurück</button></div>
   </div>`;
@@ -1689,10 +1713,10 @@ const A = {
   'm-recog':()=>{ S.menuStep='recog'; renderMenu(); },
   'm-back':()=>{ S.menuStep=null; renderMenu(); },
   'm-travel':()=>{ S.sheetMode='travel'; S.trip=S.trip||{days:3,plan:null}; renderTravel(); },
-  'm-menu':()=>openMenu(),
-  't-dec':()=>{ S.trip.days=Math.max(1,S.trip.days-1); S.trip.plan=null; renderTravel(); },
-  't-inc':()=>{ S.trip.days=Math.min(14,S.trip.days+1); S.trip.plan=null; renderTravel(); },
-  't-go':()=>{ S.trip.plan=planTrip(S.trip.days); renderTravel(); },
+  'm-menu':()=>{ syncTrip(); openMenu(); },
+  't-dec':()=>{ syncTrip(); S.trip.days=Math.max(1,S.trip.days-1); S.trip.plan=null; renderTravel(); },
+  't-inc':()=>{ syncTrip(); S.trip.days=Math.min(14,S.trip.days+1); S.trip.plan=null; renderTravel(); },
+  't-go':(t)=>goTrip(t),
   'm-recog-go':(t)=>startRecognizeAll(t.dataset.v),
   ftoggle:()=>{ S.filterOpen=!S.filterOpen; render(); },
   f:(t)=>{ const s=S.f[t.dataset.g], v=t.dataset.v; s.has(v)?s.delete(v):s.add(v); render(); },
