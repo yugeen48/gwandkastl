@@ -249,7 +249,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '7.4';
+const APP_VERSION = '7.5';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Accessoires'];
 const MATERIALS = ['Baumwolle','Leinen','Wolle','Cord','Denim','Leder','Seide','Synthetik','Gemischt'];
@@ -476,11 +476,15 @@ function viewSchrank(){
     <p>Fotografiere ein Kleidungsstück. Freistellen und Einordnen passieren automatisch.</p>
     <button class="btn" data-a="nav" data-v="add">Erstes Teil hinzufügen</button></section>`;
   const co=(c)=>{ const i=COLOR_ORDER.indexOf(c); return i<0?99:i; };
-  const list = filtered().slice().sort((a,b)=> co(a.color)-co(b.color) || CATS.indexOf(a.category)-CATS.indexOf(b.category) || (b.created_at>a.created_at?1:-1));
+  const byCat=(S.sortBy||'color')==='cat';
+  const list = filtered().slice().sort((a,b)=> byCat
+    ? (CATS.indexOf(a.category)-CATS.indexOf(b.category) || co(a.color)-co(b.color) || (b.created_at>a.created_at?1:-1))
+    : (co(a.color)-co(b.color) || CATS.indexOf(a.category)-CATS.indexOf(b.category) || (b.created_at>a.created_at?1:-1)));
   const nf = Object.values(S.f).reduce((a,s)=>a+s.size,0);
   return `<div class="head"><h1>Schrank</h1><span class="count">${list.length===S.items.length?`${list.length} Teile`:`${list.length} von ${S.items.length}`}</span>
     <button class="icbtn" data-a="stoggle" aria-label="Suchen" aria-expanded="${!!S.searchOpen}">${ICON.search||'🔍'}</button>
-    <button class="btn ghost sm push" data-a="ftoggle" aria-expanded="${S.filterOpen}">Filter${nf?` (${nf})`:''}</button>
+    <button class="btn ghost sm push" data-a="sortToggle" title="Sortierung wechseln">${byCat?'Nach Art':'Nach Farbe'}</button>
+    <button class="btn ghost sm" data-a="ftoggle" aria-expanded="${S.filterOpen}">Filter${nf?` (${nf})`:''}</button>
     <button class="btn ${S.sel?'':'ghost'} sm" data-a="selmode">${S.sel?'Fertig':'Auswählen'}</button></div>
     ${S.searchOpen?`<div class="field"><input id="schrank-search" data-c="schrank-search" type="text" value="${esc(S.search||'')}" placeholder="Suche nach Art, Farbe, Notiz …" aria-label="Suche"></div>`:''}
     ${S.filterOpen?filterPanel():''}
@@ -1764,6 +1768,7 @@ const A = {
   'm-recog-go':(t)=>startRecognizeAll(t.dataset.v),
   ftoggle:()=>{ S.filterOpen=!S.filterOpen; render(); },
   stoggle:()=>{ S.searchOpen=!S.searchOpen; if(!S.searchOpen) S.search=''; render(); if(S.searchOpen) setTimeout(()=>document.getElementById('schrank-search')?.focus(),50); },
+  sortToggle:()=>{ S.sortBy=(S.sortBy||'color')==='color'?'cat':'color'; render(); },
   f:(t)=>{ const s=S.f[t.dataset.g], v=t.dataset.v; s.has(v)?s.delete(v):s.add(v); render(); },
   freset:()=>{ Object.values(S.f).forEach(s=>s.clear()); render(); },
   edit:(t)=>{ if(S.sel){ const id=t.dataset.id; S.sel.has(id)?S.sel.delete(id):S.sel.add(id); render(); return; } openEdit(t.dataset.id); },
