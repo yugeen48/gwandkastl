@@ -258,13 +258,14 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '8.5';
+const APP_VERSION = '8.6';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
 const HEEL_HEIGHTS = ['Flach','Mittel','Hoch','Plateau'];
 const SHAFT_HEIGHTS = ['Niedrig','Stiefel'];
 const MATERIALS = ['Baumwolle','Leinen','Wolle','Cord','Denim','Leder','Seide','Synthetik','Gemischt'];
+const PATTERNS = ['Uni','Streifen','Karo','Punkte','Blumen','Print/Motiv','Glitzer'];
 const STYLES = ['Freizeit','Locker','Festlich','Sport','Business','Show'];
 // Regenbogen-Reihenfolge für den Schrank, Schwarz/Grau/Weiß am Ende
 const COLOR_ORDER = ['Rot','Bordeaux','Rosa','Orange','Gelb','Oliv','Grün','Türkis','Blau','Marineblau','Violett','Braun','Beige','Weiß','Grau','Schwarz'];
@@ -482,7 +483,7 @@ function filtered(){
     (!f.colors.size || f.colors.has(i.color)) &&
     (!f.styles.size || (i.styles||[]).some(s=>f.styles.has(s))) &&
     (!f.seasons.size || !(i.seasons||[]).length || i.seasons.some(s=>f.seasons.has(s))) &&
-    (!q || [i.category,i.color,i.color2,i.material,i.note,...(i.styles||[]),...(i.seasons||[])].filter(Boolean).some(x=>x.toLowerCase().includes(q))));
+    (!q || [i.category,i.color,i.color2,i.material,i.pattern,i.note,...(i.styles||[]),...(i.seasons||[])].filter(Boolean).some(x=>x.toLowerCase().includes(q))));
 }
 function viewSchrank(){
   if(!S.items.length) return `<section class="empty"><h1>Dein Schrank ist noch leer</h1>
@@ -568,6 +569,7 @@ function fieldsHTML(o, pre, id){
   <div class="field"><h3>Stil</h3><div class="chips">${STYLES.map(s=>chip(s,o.styles.includes(s),`data-a="${pre}-style" data-i="${id}" data-v="${s}"`)).join('')}</div></div>
   <div class="field"><h3>Jahreszeit</h3><div class="chips">${SEASONS.map(s=>chip(s,o.seasons.includes(s),`data-a="${pre}-season" data-i="${id}" data-v="${s}"`)).join('')}</div></div>
   <div class="field"><h3>Material</h3><select data-c="${pre}-mat" data-i="${id}" aria-label="Material"><option value="" ${!o.material?'selected':''}>—</option>${MATERIALS.map(m=>`<option ${o.material===m?'selected':''}>${m}</option>`).join('')}</select></div>
+  <div class="field"><h3>Muster</h3><select data-c="${pre}-pattern" data-i="${id}" aria-label="Muster"><option value="" ${!o.pattern?'selected':''}>—</option>${PATTERNS.map(m=>`<option ${o.pattern===m?'selected':''}>${m}</option>`).join('')}</select></div>
   ${o.cat==='Tasche'?`<div class="field"><h3>Größe</h3><div class="chips">${BAG_SIZES.map(v=>chip(v,o.bagSize===v,`data-a="${pre}-bagsize" data-i="${id}" data-v="${v}"`)).join('')}</div></div>`:''}
   ${o.cat==='Schuhe' && !S.d.hideHeel?`<div class="field"><h3>Absatzhöhe</h3><div class="chips">${HEEL_HEIGHTS.map(v=>chip(v,o.heel===v,`data-a="${pre}-heel" data-i="${id}" data-v="${v}"`)).join('')}</div></div>`:''}
   ${o.cat==='Schuhe'?`<div class="field"><h3>Schafthöhe</h3><select data-c="${pre}-shaft" data-i="${id}" aria-label="Schafthöhe"><option value="" ${!o.shaft?'selected':''}>—</option>${SHAFT_HEIGHTS.map(v=>`<option ${o.shaft===v?'selected':''}>${v}</option>`).join('')}</select></div>`:''}
@@ -609,7 +611,7 @@ function addFiles(files){
   for(const f of files){
     const sig = f.name+'|'+f.size+'|'+f.lastModified;
     const twin = S.queue.find(q=>q.sig===sig);
-    S.queue.push({id:crypto.randomUUID(), file:f, sig, status:'wait', step:'', keep:!twin, cat:'T-Shirt', color:'', color2:'', styles:[], seasons:[], material:'', note:'', bagSize:'', heel:'', shaft:'', dup:twin?{q:twin.id}:null});
+    S.queue.push({id:crypto.randomUUID(), file:f, sig, status:'wait', step:'', keep:!twin, cat:'T-Shirt', color:'', color2:'', styles:[], seasons:[], material:'', pattern:'', note:'', bagSize:'', heel:'', shaft:'', dup:twin?{q:twin.id}:null});
   }
   render(); processQueue();
 }
@@ -668,7 +670,7 @@ async function processOne(q){
   q.blob = await exportImage(out);
   q.preview = URL.createObjectURL(q.blob);
   q.hash = dhash(out);
-  if(rec){ q.cat=rec.category; q.color=rec.color; q.color2=rec.color2; q.styles=rec.styles; q.seasons=rec.seasons; q.material=rec.material; q.shaft=(rec.shaft&&rec.shaft!=='Nicht zutreffend')?rec.shaft:''; q.pending=false; }
+  if(rec){ q.cat=rec.category; q.color=rec.color; q.color2=rec.color2; q.styles=rec.styles; q.seasons=rec.seasons; q.material=rec.material; q.pattern=rec.pattern; q.shaft=(rec.shaft&&rec.shaft!=='Nicht zutreffend')?rec.shaft:''; q.pending=false; }
   else { q.color=detectColor(out); q.pending=true; }
   if(!q.dup){ const d = findDuplicate(q); if(d){ q.dup=d; q.keep=false; } }
 }
@@ -915,7 +917,7 @@ async function restoreBackup(file){
       const path=`${S.user.id}/${crypto.randomUUID()}.${ext}`;
       const up=await sb.storage.from(BUCKET).upload(path, blob, {contentType:'image/'+ext});
       if(up.error) throw up.error;
-      const row={image_path:path, category:it.category, color:it.color, color2:it.color2||null, styles:it.styles||[], seasons:it.seasons||[], material:it.material||null, note:it.note||null, bag_size:it.bag_size||null, heel:it.heel||null, shaft:it.shaft||null, hash:it.hash||null, pending:!!it.pending, edited:!!it.edited, created_at:it.created_at};
+      const row={image_path:path, category:it.category, color:it.color, color2:it.color2||null, styles:it.styles||[], seasons:it.seasons||[], material:it.material||null, pattern:it.pattern||null, note:it.note||null, bag_size:it.bag_size||null, heel:it.heel||null, shaft:it.shaft||null, hash:it.hash||null, pending:!!it.pending, edited:!!it.edited, created_at:it.created_at};
       let res=await sb.from('items').insert({...row, id:it.id}).select().single();
       if(res.error) res=await sb.from('items').insert(row).select().single();
       if(res.error){ await sb.storage.from(BUCKET).remove([path]); throw res.error; }
@@ -1117,7 +1119,7 @@ async function saveItem(q){
   const path=`${S.user.id}/${crypto.randomUUID()}.${q.blob.type==='image/webp'?'webp':'png'}`;
   const up=await sb.storage.from(BUCKET).upload(path,q.blob,{contentType:q.blob.type});
   if(up.error) throw up.error;
-  const {data,error}=await sb.from('items').insert({image_path:path,category:q.cat,color:q.color,color2:q.color2||null,styles:q.styles,seasons:q.seasons,material:q.material||null,note:q.note||null,bag_size:q.cat==='Tasche'?(q.bagSize||null):null,heel:q.cat==='Schuhe'?(q.heel||null):null,shaft:q.cat==='Schuhe'?(q.shaft||null):null,hash:q.hash,pending:!!q.pending && !q.touched,edited:!!q.touched}).select().single();
+  const {data,error}=await sb.from('items').insert({image_path:path,category:q.cat,color:q.color,color2:q.color2||null,styles:q.styles,seasons:q.seasons,material:q.material||null,pattern:q.pattern||null,note:q.note||null,bag_size:q.cat==='Tasche'?(q.bagSize||null):null,heel:q.cat==='Schuhe'?(q.heel||null):null,shaft:q.cat==='Schuhe'?(q.shaft||null):null,hash:q.hash,pending:!!q.pending && !q.touched,edited:!!q.touched}).select().single();
   if(error){ await sb.storage.from(BUCKET).remove([path]); throw error; }
   S.items.push(data); S.urls[path]={url:q.preview};
 }
@@ -1126,7 +1128,7 @@ async function saveItem(q){
 function openEdit(id){
   const it=S.items.find(i=>i.id===id); if(!it) return;
   S.sheetMode='edit';
-  S.edit={id, cat:it.category, color:it.color, color2:it.color2||'', styles:[...(it.styles||[])], seasons:[...(it.seasons||[])], material:it.material||'', note:it.note||'', bagSize:it.bag_size||'', heel:it.heel||'', shaft:it.shaft||'', blob:null, preview:null, busy:false};
+  S.edit={id, cat:it.category, color:it.color, color2:it.color2||'', styles:[...(it.styles||[])], seasons:[...(it.seasons||[])], material:it.material||'', pattern:it.pattern||'', note:it.note||'', bagSize:it.bag_size||'', heel:it.heel||'', shaft:it.shaft||'', blob:null, preview:null, busy:false};
   renderSheet();
 }
 function renderViewSheet(){
@@ -1139,6 +1141,7 @@ function renderViewSheet(){
     ${(it.styles||[]).length?`<div class="viewfield"><h3>Stil</h3>${esc((it.styles||[]).join(', '))}</div>`:''}
     ${(it.seasons||[]).length?`<div class="viewfield"><h3>Jahreszeit</h3>${esc((it.seasons||[]).join(', '))}</div>`:''}
     <div class="viewfield"><h3>Material</h3>${esc(it.material||'—')}</div>
+    ${it.pattern?`<div class="viewfield"><h3>Muster</h3>${esc(it.pattern)}</div>`:''}
     ${it.category==='Tasche' && it.bag_size?`<div class="viewfield"><h3>Größe</h3>${esc(it.bag_size)}</div>`:''}
     ${it.category==='Schuhe' && it.heel && !S.d.hideHeel?`<div class="viewfield"><h3>Absatzhöhe</h3>${esc(it.heel)}</div>`:''}
     ${it.category==='Schuhe' && it.shaft?`<div class="viewfield"><h3>Schafthöhe</h3>${esc(it.shaft)}</div>`:''}
@@ -1201,9 +1204,9 @@ async function saveEdit(btn){
   const e=S.edit, it=S.items.find(i=>i.id===e.id);
   btn.disabled=true;
   try{
-    const patch={category:e.cat,color:e.color,color2:e.color2||null,styles:e.styles,seasons:e.seasons,material:e.material||null,note:e.note||null,bag_size:e.cat==='Tasche'?(e.bagSize||null):null,heel:e.cat==='Schuhe'?(e.heel||null):null,shaft:e.cat==='Schuhe'?(e.shaft||null):null};
+    const patch={category:e.cat,color:e.color,color2:e.color2||null,styles:e.styles,seasons:e.seasons,material:e.material||null,pattern:e.pattern||null,note:e.note||null,bag_size:e.cat==='Tasche'?(e.bagSize||null):null,heel:e.cat==='Schuhe'?(e.heel||null):null,shaft:e.cat==='Schuhe'?(e.shaft||null):null};
     const same=(a,b)=>[...(a||[])].sort().join()===[...(b||[])].sort().join();
-    if(e.cat!==it.category || e.color!==it.color || (e.color2||'')!==(it.color2||'') || !same(e.styles,it.styles) || !same(e.seasons,it.seasons) || (e.material||'')!==(it.material||'') || (e.note||'')!==(it.note||'') || (e.bagSize||'')!==(it.bag_size||'') || (e.heel||'')!==(it.heel||'') || (e.shaft||'')!==(it.shaft||'')){ patch.edited=true; patch.pending=false; }
+    if(e.cat!==it.category || e.color!==it.color || (e.color2||'')!==(it.color2||'') || !same(e.styles,it.styles) || !same(e.seasons,it.seasons) || (e.material||'')!==(it.material||'') || (e.pattern||'')!==(it.pattern||'') || (e.note||'')!==(it.note||'') || (e.bagSize||'')!==(it.bag_size||'') || (e.heel||'')!==(it.heel||'') || (e.shaft||'')!==(it.shaft||'')){ patch.edited=true; patch.pending=false; }
     if(e.blob){
       const c=await blobToCanvas(e.blob);
       const path=`${S.user.id}/${crypto.randomUUID()}.${e.blob.type==='image/webp'?'webp':'png'}`;
@@ -1903,6 +1906,7 @@ document.addEventListener('change',(e)=>{
   else if(c==='q-cat'||c==='e-cat'){ const o=qById(t.dataset.i); if(o){ o.cat=t.value; o.touched=true; if(c==='e-cat') renderSheet(); } }
   else if(c==='q-mat'||c==='e-mat'){ const o=qById(t.dataset.i); if(o){ o.material=t.value; o.touched=true; } }
   else if(c==='q-shaft'||c==='e-shaft'){ const o=qById(t.dataset.i); if(o){ o.shaft=t.value; o.touched=true; } }
+  else if(c==='q-pattern'||c==='e-pattern'){ const o=qById(t.dataset.i); if(o){ o.pattern=t.value; o.touched=true; } }
   else if(c==='q-keep'){ const o=qById(t.dataset.i); if(o){ o.keep=t.checked; render(); } }
   else if(c==='o-folder'){ S.osave.folder=t.value; renderOutfitSheet(); }
   else if(c==='oe-folder'){ S.oedit.folder=t.value; renderOEdit(); }
