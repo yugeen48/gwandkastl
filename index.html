@@ -248,7 +248,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '7.0';
+const APP_VERSION = '7.1';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Accessoires'];
 const MATERIALS = ['Baumwolle','Leinen','Wolle','Cord','Denim','Leder','Seide','Synthetik','Gemischt'];
@@ -678,6 +678,7 @@ function gemini(body, onWait){
       if(err.rate) gemNext=Date.now()+60000;
       throw err;
     }
+    if(data.fn_version) S.fnVersion=data.fn_version;
     return data;
   });
   gemChain = run.catch(()=>{});
@@ -799,7 +800,7 @@ function renderMenu(){
         ${isAdmin()?`<a class="mitem" href="https://supabase.com/dashboard/project/${PROJECT_REF}/auth/users" target="_blank" rel="noopener">Nutzer anlegen<span class="muted small">Öffnet die Nutzerverwaltung in Supabase</span></a>`:''}
         <button class="mitem" data-a="logout">Abmelden<span class="muted small">${esc(S.user?.email||'')}</span></button>
       </div>
-      <p class="muted small" style="margin-top:14px">Version ${APP_VERSION}</p>`;
+      <p class="muted small" style="margin-top:14px">Version ${APP_VERSION}${S.fnVersion?(' · Charly v'+esc(S.fnVersion)):''}</p>`;
   }
   sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Menü">
     <div class="phead"><h2>${S.menuStep==='recog'?'Alle neu erkennen':'Gwandkastl von '+esc(userName())}</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>${body}</div>`;
