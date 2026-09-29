@@ -72,7 +72,10 @@ h2{font-weight:400;font-size:20px}
 .mitem{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:14px 0;border-bottom:1px solid var(--line);text-align:left;color:var(--ink);text-decoration:none;font-size:16px}
 .inline{display:flex;gap:8px}
 .inline .btn{flex:none}
-.nav{display:flex;gap:28px}
+.nav{display:flex;gap:28px;align-items:center}
+.navadd{width:34px;height:34px;border:1.5px solid var(--line);margin-left:2px}
+.navadd svg{width:17px;height:17px}
+.navadd.on{border-color:var(--ink);background:var(--ink);color:var(--bg)}
 .nav button{font-size:15px;padding:6px 0;border-bottom:1.5px solid transparent;color:var(--muted)}
 .nav button.on{color:var(--ink);border-color:var(--ink)}
 .icbtn{width:40px;height:40px;display:grid;place-items:center;border-radius:50%}
@@ -249,7 +252,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '8.2';
+const APP_VERSION = '8.3';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
@@ -457,7 +460,7 @@ function render(){
   if(S.items.length && Date.now()-S.urlTime > 6*3600e3){ refreshUrls(true).then(render); return; }
   const view = {schrank:viewSchrank, dress:viewDress, outfits:viewOutfits, add:viewAdd}[S.view]();
   app.innerHTML = `<header class="top"><button class="brand" data-a="menu" aria-label="Menü öffnen"><span class="logo">Gwandkastl</span><span class="owner">von ${esc(userName())}${ICON.chevD}</span></button>
-    <nav class="nav">${TABS.map(t=>`<button data-a="nav" data-v="${t[0]}" class="${S.view===t[0]?'on':''}">${t[1]}</button>`).join('')}</nav>
+    <nav class="nav">${TABS.filter(t=>t[0]!=='add').map(t=>`<button data-a="nav" data-v="${t[0]}" class="${S.view===t[0]?'on':''}">${t[1]}</button>`).join('')}<button class="navadd icbtn ${S.view==='add'?'on':''}" data-a="nav" data-v="add" aria-label="Hinzufügen">${ICON.plus}</button></nav>
     ${bgBarHTML()}</header>
     <main>${view}</main>
     <nav class="tabbar">${TABS.map(t=>`<button data-a="nav" data-v="${t[0]}" class="${S.view===t[0]?'on':''}">${ICON[t[2]]}<span>${t[1]}</span></button>`).join('')}</nav>`;
