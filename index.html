@@ -70,6 +70,12 @@ h2{font-weight:400;font-size:20px}
 .bgbar.err #bgtext{color:var(--danger)}
 .menu{display:flex;flex-direction:column;margin-top:22px;border-top:1px solid var(--line)}
 .mitem{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:14px 0;border-bottom:1px solid var(--line);text-align:left;color:var(--ink);text-decoration:none;font-size:16px}
+.mtoggle{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;padding:14px 0;border-bottom:1px solid var(--line);text-align:left;color:var(--ink);font-size:16px}
+.mtoggle .mtext{display:flex;flex-direction:column;gap:2px;min-width:0}
+.mswitch{flex:none;width:46px;height:27px;border-radius:999px;background:var(--line);position:relative;transition:background-color .2s}
+.mswitch::after{content:'';position:absolute;top:2px;left:2px;width:23px;height:23px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
+.mswitch.on{background:#34C759}
+.mswitch.on::after{transform:translateX(19px)}
 .inline{display:flex;gap:8px}
 .inline .btn{flex:none}
 .nav{display:flex;gap:28px;align-items:center}
@@ -252,11 +258,12 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '8.3';
+const APP_VERSION = '8.5';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
-const HEEL_HEIGHTS = ['Flach','Mittel','Hoch'];
+const HEEL_HEIGHTS = ['Flach','Mittel','Hoch','Plateau'];
+const SHAFT_HEIGHTS = ['Niedrig','Stiefel'];
 const MATERIALS = ['Baumwolle','Leinen','Wolle','Cord','Denim','Leder','Seide','Synthetik','Gemischt'];
 const STYLES = ['Freizeit','Locker','Festlich','Sport','Business','Show'];
 // Regenbogen-Reihenfolge für den Schrank, Schwarz/Grau/Weiß am Ende
@@ -563,6 +570,7 @@ function fieldsHTML(o, pre, id){
   <div class="field"><h3>Material</h3><select data-c="${pre}-mat" data-i="${id}" aria-label="Material"><option value="" ${!o.material?'selected':''}>—</option>${MATERIALS.map(m=>`<option ${o.material===m?'selected':''}>${m}</option>`).join('')}</select></div>
   ${o.cat==='Tasche'?`<div class="field"><h3>Größe</h3><div class="chips">${BAG_SIZES.map(v=>chip(v,o.bagSize===v,`data-a="${pre}-bagsize" data-i="${id}" data-v="${v}"`)).join('')}</div></div>`:''}
   ${o.cat==='Schuhe' && !S.d.hideHeel?`<div class="field"><h3>Absatzhöhe</h3><div class="chips">${HEEL_HEIGHTS.map(v=>chip(v,o.heel===v,`data-a="${pre}-heel" data-i="${id}" data-v="${v}"`)).join('')}</div></div>`:''}
+  ${o.cat==='Schuhe'?`<div class="field"><h3>Schafthöhe</h3><select data-c="${pre}-shaft" data-i="${id}" aria-label="Schafthöhe"><option value="" ${!o.shaft?'selected':''}>—</option>${SHAFT_HEIGHTS.map(v=>`<option ${o.shaft===v?'selected':''}>${v}</option>`).join('')}</select></div>`:''}
   <div class="field"><h3>Notiz</h3><input type="text" data-c="${pre}-note" data-i="${id}" value="${esc(o.note||'')}" placeholder="z. B. Streifen" maxlength="120" aria-label="Notiz"></div>`;
 }
 const toggleIn = (arr,v) => arr.includes(v) ? arr.filter(x=>x!==v) : [...arr, v];
@@ -601,7 +609,7 @@ function addFiles(files){
   for(const f of files){
     const sig = f.name+'|'+f.size+'|'+f.lastModified;
     const twin = S.queue.find(q=>q.sig===sig);
-    S.queue.push({id:crypto.randomUUID(), file:f, sig, status:'wait', step:'', keep:!twin, cat:'T-Shirt', color:'', color2:'', styles:[], seasons:[], material:'', note:'', bagSize:'', heel:'', dup:twin?{q:twin.id}:null});
+    S.queue.push({id:crypto.randomUUID(), file:f, sig, status:'wait', step:'', keep:!twin, cat:'T-Shirt', color:'', color2:'', styles:[], seasons:[], material:'', note:'', bagSize:'', heel:'', shaft:'', dup:twin?{q:twin.id}:null});
   }
   render(); processQueue();
 }
@@ -660,7 +668,7 @@ async function processOne(q){
   q.blob = await exportImage(out);
   q.preview = URL.createObjectURL(q.blob);
   q.hash = dhash(out);
-  if(rec){ q.cat=rec.category; q.color=rec.color; q.color2=rec.color2; q.styles=rec.styles; q.seasons=rec.seasons; q.material=rec.material; q.pending=false; }
+  if(rec){ q.cat=rec.category; q.color=rec.color; q.color2=rec.color2; q.styles=rec.styles; q.seasons=rec.seasons; q.material=rec.material; q.shaft=(rec.shaft&&rec.shaft!=='Nicht zutreffend')?rec.shaft:''; q.pending=false; }
   else { q.color=detectColor(out); q.pending=true; }
   if(!q.dup){ const d = findDuplicate(q); if(d){ q.dup=d; q.keep=false; } }
 }
@@ -801,7 +809,13 @@ const PROJECT_REF=configured?new URL(SUPABASE_URL).hostname.split('.')[0]:'';
 function openMenu(){ S.sheetMode='menu'; S.menuStep=null; renderMenu(); }
 function renderMenu(){
   let body;
-  if(S.menuStep==='recog'){
+  if(S.menuStep==='display'){
+    body=`<div class="menu">
+      <button class="mtoggle" data-a="m-kleid"><span class="mtext">Kleid-Modus<span class="muted small">Umschalter beim Anziehen anzeigen</span></span><span class="mswitch ${S.d.hideKleid?'':'on'}"></span></button>
+      <button class="mtoggle" data-a="m-heel"><span class="mtext">Absatzhöhe<span class="muted small">Feld bei Schuhen anzeigen</span></span><span class="mswitch ${S.d.hideHeel?'':'on'}"></span></button>
+      </div>
+      <div class="actions" style="margin-top:14px"><button class="btn ghost" data-a="m-back">Zurück</button></div>`;
+  }else if(S.menuStep==='recog'){
     const n=S.items.length, k=S.items.filter(i=>i.edited).length, min=Math.max(1,Math.ceil(n*GEM_GAP/60000));
     body=`<p>Charly schaut sich alle ${n} Teile im Hintergrund neu an. Das dauert etwa ${min} ${min===1?'Minute':'Minuten'}, du kannst dabei weiter blättern.</p>
       ${k?`<p class="muted small" style="margin-top:8px">${k} ${k===1?'Teil hast':'Teile hast'} du von Hand korrigiert.</p>`:''}
@@ -813,8 +827,7 @@ function renderMenu(){
       <div class="menu">
         <button class="mitem" data-a="m-recog" ${S.items.length?'':'disabled'}>Alle neu erkennen<span class="muted small">Charly sortiert deine Teile neu ein</span></button>
         <button class="mitem" data-a="m-travel" ${S.items.length?'':'disabled'}>Reisemodus<span class="muted small">Outfits und Packliste für mehrere Tage</span></button>
-        <button class="mitem" data-a="m-kleid">${S.d.hideKleid?'Kleid-Modus wieder einblenden':'Kleid-Modus ausblenden'}<span class="muted small">Umschalter beim Anziehen ${S.d.hideKleid?'wieder anzeigen':'verstecken, falls nie gebraucht'}</span></button>
-        <button class="mitem" data-a="m-heel">${S.d.hideHeel?'Absatzhöhe wieder einblenden':'Absatzhöhe ausblenden'}<span class="muted small">Feld bei Schuhen ${S.d.hideHeel?'wieder anzeigen':'verstecken, falls nie gebraucht'}</span></button>
+        <button class="mitem" data-a="m-display">Anzeige-Einstellungen<span class="muted small">Kleid-Modus und Absatzhöhe ein- oder ausblenden</span></button>
         <button class="mitem" data-a="m-backup" ${S.items.length?'':'disabled'}>Sicherung herunterladen<span class="muted small">Alle Fotos und Daten als ZIP-Datei</span></button>
         <label class="mitem" style="cursor:pointer">Aus Sicherung wiederherstellen<span class="muted small">ZIP-Datei auswählen, doppelte Teile werden übersprungen</span><input type="file" accept=".zip,application/zip" data-c="restore" hidden></label>
         ${isAdmin()?`<a class="mitem" href="https://supabase.com/dashboard/project/${PROJECT_REF}/auth/users" target="_blank" rel="noopener">Nutzer anlegen<span class="muted small">Öffnet die Nutzerverwaltung in Supabase</span></a>`:''}
@@ -823,7 +836,7 @@ function renderMenu(){
       <p class="muted small" style="margin-top:14px">Version ${APP_VERSION}${S.fnVersion?(' · Charly v'+esc(S.fnVersion)):''}</p>`;
   }
   sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Menü">
-    <div class="phead"><h2>${S.menuStep==='recog'?'Alle neu erkennen':'Gwandkastl von '+esc(userName())}</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>${body}</div>`;
+    <div class="phead"><h2>${S.menuStep==='recog'?'Alle neu erkennen':S.menuStep==='display'?'Anzeige-Einstellungen':'Gwandkastl von '+esc(userName())}</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>${body}</div>`;
   sheet.hidden=false;
 }
 async function saveName(btn){
@@ -902,7 +915,7 @@ async function restoreBackup(file){
       const path=`${S.user.id}/${crypto.randomUUID()}.${ext}`;
       const up=await sb.storage.from(BUCKET).upload(path, blob, {contentType:'image/'+ext});
       if(up.error) throw up.error;
-      const row={image_path:path, category:it.category, color:it.color, color2:it.color2||null, styles:it.styles||[], seasons:it.seasons||[], material:it.material||null, note:it.note||null, bag_size:it.bag_size||null, heel:it.heel||null, hash:it.hash||null, pending:!!it.pending, edited:!!it.edited, created_at:it.created_at};
+      const row={image_path:path, category:it.category, color:it.color, color2:it.color2||null, styles:it.styles||[], seasons:it.seasons||[], material:it.material||null, note:it.note||null, bag_size:it.bag_size||null, heel:it.heel||null, shaft:it.shaft||null, hash:it.hash||null, pending:!!it.pending, edited:!!it.edited, created_at:it.created_at};
       let res=await sb.from('items').insert({...row, id:it.id}).select().single();
       if(res.error) res=await sb.from('items').insert(row).select().single();
       if(res.error){ await sb.storage.from(BUCKET).remove([path]); throw res.error; }
@@ -1104,7 +1117,7 @@ async function saveItem(q){
   const path=`${S.user.id}/${crypto.randomUUID()}.${q.blob.type==='image/webp'?'webp':'png'}`;
   const up=await sb.storage.from(BUCKET).upload(path,q.blob,{contentType:q.blob.type});
   if(up.error) throw up.error;
-  const {data,error}=await sb.from('items').insert({image_path:path,category:q.cat,color:q.color,color2:q.color2||null,styles:q.styles,seasons:q.seasons,material:q.material||null,note:q.note||null,bag_size:q.cat==='Tasche'?(q.bagSize||null):null,heel:q.cat==='Schuhe'?(q.heel||null):null,hash:q.hash,pending:!!q.pending && !q.touched,edited:!!q.touched}).select().single();
+  const {data,error}=await sb.from('items').insert({image_path:path,category:q.cat,color:q.color,color2:q.color2||null,styles:q.styles,seasons:q.seasons,material:q.material||null,note:q.note||null,bag_size:q.cat==='Tasche'?(q.bagSize||null):null,heel:q.cat==='Schuhe'?(q.heel||null):null,shaft:q.cat==='Schuhe'?(q.shaft||null):null,hash:q.hash,pending:!!q.pending && !q.touched,edited:!!q.touched}).select().single();
   if(error){ await sb.storage.from(BUCKET).remove([path]); throw error; }
   S.items.push(data); S.urls[path]={url:q.preview};
 }
@@ -1113,7 +1126,7 @@ async function saveItem(q){
 function openEdit(id){
   const it=S.items.find(i=>i.id===id); if(!it) return;
   S.sheetMode='edit';
-  S.edit={id, cat:it.category, color:it.color, color2:it.color2||'', styles:[...(it.styles||[])], seasons:[...(it.seasons||[])], material:it.material||'', note:it.note||'', bagSize:it.bag_size||'', heel:it.heel||'', blob:null, preview:null, busy:false};
+  S.edit={id, cat:it.category, color:it.color, color2:it.color2||'', styles:[...(it.styles||[])], seasons:[...(it.seasons||[])], material:it.material||'', note:it.note||'', bagSize:it.bag_size||'', heel:it.heel||'', shaft:it.shaft||'', blob:null, preview:null, busy:false};
   renderSheet();
 }
 function renderViewSheet(){
@@ -1128,6 +1141,7 @@ function renderViewSheet(){
     <div class="viewfield"><h3>Material</h3>${esc(it.material||'—')}</div>
     ${it.category==='Tasche' && it.bag_size?`<div class="viewfield"><h3>Größe</h3>${esc(it.bag_size)}</div>`:''}
     ${it.category==='Schuhe' && it.heel && !S.d.hideHeel?`<div class="viewfield"><h3>Absatzhöhe</h3>${esc(it.heel)}</div>`:''}
+    ${it.category==='Schuhe' && it.shaft?`<div class="viewfield"><h3>Schafthöhe</h3>${esc(it.shaft)}</div>`:''}
     <div class="viewfield"><h3>Notiz</h3>${esc(it.note||'—')}</div>
     <div class="actions"><button class="btn" data-a="v-edit" data-id="${it.id}">Bearbeiten</button></div>
   </div>`;
@@ -1187,9 +1201,9 @@ async function saveEdit(btn){
   const e=S.edit, it=S.items.find(i=>i.id===e.id);
   btn.disabled=true;
   try{
-    const patch={category:e.cat,color:e.color,color2:e.color2||null,styles:e.styles,seasons:e.seasons,material:e.material||null,note:e.note||null,bag_size:e.cat==='Tasche'?(e.bagSize||null):null,heel:e.cat==='Schuhe'?(e.heel||null):null};
+    const patch={category:e.cat,color:e.color,color2:e.color2||null,styles:e.styles,seasons:e.seasons,material:e.material||null,note:e.note||null,bag_size:e.cat==='Tasche'?(e.bagSize||null):null,heel:e.cat==='Schuhe'?(e.heel||null):null,shaft:e.cat==='Schuhe'?(e.shaft||null):null};
     const same=(a,b)=>[...(a||[])].sort().join()===[...(b||[])].sort().join();
-    if(e.cat!==it.category || e.color!==it.color || (e.color2||'')!==(it.color2||'') || !same(e.styles,it.styles) || !same(e.seasons,it.seasons) || (e.material||'')!==(it.material||'') || (e.note||'')!==(it.note||'') || (e.bagSize||'')!==(it.bag_size||'') || (e.heel||'')!==(it.heel||'')){ patch.edited=true; patch.pending=false; }
+    if(e.cat!==it.category || e.color!==it.color || (e.color2||'')!==(it.color2||'') || !same(e.styles,it.styles) || !same(e.seasons,it.seasons) || (e.material||'')!==(it.material||'') || (e.note||'')!==(it.note||'') || (e.bagSize||'')!==(it.bag_size||'') || (e.heel||'')!==(it.heel||'') || (e.shaft||'')!==(it.shaft||'')){ patch.edited=true; patch.pending=false; }
     if(e.blob){
       const c=await blobToCanvas(e.blob);
       const path=`${S.user.id}/${crypto.randomUUID()}.${e.blob.type==='image/webp'?'webp':'png'}`;
@@ -1778,6 +1792,7 @@ const A = {
   'm-name':(t)=>saveName(t),
   'm-recog':()=>{ S.menuStep='recog'; renderMenu(); },
   'm-back':()=>{ S.menuStep=null; renderMenu(); },
+  'm-display':()=>{ S.menuStep='display'; renderMenu(); },
   'm-travel':()=>{ S.sheetMode='travel'; S.trip=S.trip||{days:3,plan:null}; renderTravel(); },
   'm-menu':()=>{ syncTrip(); openMenu(); },
   't-dec':()=>{ syncTrip(); S.trip.days=Math.max(1,S.trip.days-1); S.trip.plan=null; renderTravel(); },
@@ -1786,8 +1801,8 @@ const A = {
   'm-recog-go':(t)=>startRecognizeAll(t.dataset.v),
   ftoggle:()=>{ S.filterOpen=!S.filterOpen; render(); },
   stoggle:()=>{ S.searchOpen=!S.searchOpen; if(!S.searchOpen) S.search=''; render(); if(S.searchOpen) setTimeout(()=>document.getElementById('schrank-search')?.focus(),50); },
-  'm-kleid':()=>{ S.d.hideKleid=!S.d.hideKleid; if(S.d.hideKleid) S.d.kleid=false; saveDressPrefs(); renderMenu(); },
-  'm-heel':()=>{ S.d.hideHeel=!S.d.hideHeel; saveDressPrefs(); renderMenu(); },
+  'm-kleid':()=>{ S.d.hideKleid=!S.d.hideKleid; if(S.d.hideKleid) S.d.kleid=false; saveDressPrefs(); S.menuStep='display'; renderMenu(); },
+  'm-heel':()=>{ S.d.hideHeel=!S.d.hideHeel; saveDressPrefs(); S.menuStep='display'; renderMenu(); },
   sortToggle:()=>{ S.sortBy=(S.sortBy||'color')==='color'?'cat':'color'; render(); },
   f:(t)=>{ const s=S.f[t.dataset.g], v=t.dataset.v; s.has(v)?s.delete(v):s.add(v); render(); },
   freset:()=>{ Object.values(S.f).forEach(s=>s.clear()); render(); },
@@ -1887,6 +1902,7 @@ document.addEventListener('change',(e)=>{
   if(c==='files'){ if(t.files?.length) addFiles([...t.files]); t.value=''; }
   else if(c==='q-cat'||c==='e-cat'){ const o=qById(t.dataset.i); if(o){ o.cat=t.value; o.touched=true; if(c==='e-cat') renderSheet(); } }
   else if(c==='q-mat'||c==='e-mat'){ const o=qById(t.dataset.i); if(o){ o.material=t.value; o.touched=true; } }
+  else if(c==='q-shaft'||c==='e-shaft'){ const o=qById(t.dataset.i); if(o){ o.shaft=t.value; o.touched=true; } }
   else if(c==='q-keep'){ const o=qById(t.dataset.i); if(o){ o.keep=t.checked; render(); } }
   else if(c==='o-folder'){ S.osave.folder=t.value; renderOutfitSheet(); }
   else if(c==='oe-folder'){ S.oedit.folder=t.value; renderOEdit(); }
