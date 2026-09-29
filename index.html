@@ -229,6 +229,9 @@ textarea{font:inherit}
 
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important}.spinner{animation-duration:1.5s!important}}
 .wx{font-size:.82rem;color:var(--muted,#777);margin:-4px 0 8px}
+.stageimg{background:none;border:0;padding:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;cursor:zoom-in}
+.viewbig{width:100%;max-height:52vh;object-fit:contain;background:#eee;border-radius:12px}
+.viewfield{margin:10px 0}.viewfield h3{margin:0 0 4px;font-size:.8rem;color:var(--muted,#777)}
 </style>
 </head>
 <body>
@@ -245,9 +248,10 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '6.1';
+const APP_VERSION = '7.0';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Accessoires'];
+const MATERIALS = ['Baumwolle','Leinen','Wolle','Cord','Denim','Leder','Seide','Synthetik','Gemischt'];
 const STYLES = ['Freizeit','Locker','Festlich','Sport','Business','Show'];
 // Regenbogen-Reihenfolge für den Schrank, Schwarz/Grau/Weiß am Ende
 const COLOR_ORDER = ['Rot','Bordeaux','Rosa','Orange','Gelb','Oliv','Grün','Türkis','Blau','Marineblau','Violett','Braun','Beige','Weiß','Grau','Schwarz'];
@@ -295,6 +299,7 @@ const ICON = {
   share:I('<path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>'),
   check:I('<path d="m5 12 5 5 9-10"/>'),
   thumb:I('<path d="M7 11v9H4v-9zM7 11l4-8a2.5 2.5 0 0 1 2.5 2.5V9h5a2 2 0 0 1 2 2.3l-1.3 7A2 2 0 0 1 17.2 20H7"/>'),
+  search:I('<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>'),
 };
 
 /* Charly – kleiner Roboter, erscheint nur während er arbeitet */
@@ -457,12 +462,13 @@ function render(){
 
 /* ---------------- Schrank ---------------- */
 function filtered(){
-  const f=S.f;
+  const f=S.f, q=(S.search||'').trim().toLowerCase();
   return S.items.filter(i =>
     (!f.cats.size || f.cats.has(i.category)) &&
     (!f.colors.size || f.colors.has(i.color)) &&
     (!f.styles.size || (i.styles||[]).some(s=>f.styles.has(s))) &&
-    (!f.seasons.size || !(i.seasons||[]).length || i.seasons.some(s=>f.seasons.has(s))));
+    (!f.seasons.size || !(i.seasons||[]).length || i.seasons.some(s=>f.seasons.has(s))) &&
+    (!q || [i.category,i.color,i.material,i.note,...(i.styles||[]),...(i.seasons||[])].filter(Boolean).some(x=>x.toLowerCase().includes(q))));
 }
 function viewSchrank(){
   if(!S.items.length) return `<section class="empty"><h1>Dein Schrank ist noch leer</h1>
@@ -472,8 +478,10 @@ function viewSchrank(){
   const list = filtered().slice().sort((a,b)=> co(a.color)-co(b.color) || CATS.indexOf(a.category)-CATS.indexOf(b.category) || (b.created_at>a.created_at?1:-1));
   const nf = Object.values(S.f).reduce((a,s)=>a+s.size,0);
   return `<div class="head"><h1>Schrank</h1><span class="count">${list.length===S.items.length?`${list.length} Teile`:`${list.length} von ${S.items.length}`}</span>
+    <button class="icbtn" data-a="stoggle" aria-label="Suchen" aria-expanded="${!!S.searchOpen}">${ICON.search||'🔍'}</button>
     <button class="btn ghost sm push" data-a="ftoggle" aria-expanded="${S.filterOpen}">Filter${nf?` (${nf})`:''}</button>
     <button class="btn ${S.sel?'':'ghost'} sm" data-a="selmode">${S.sel?'Fertig':'Auswählen'}</button></div>
+    ${S.searchOpen?`<div class="field"><input id="schrank-search" data-c="schrank-search" type="text" value="${esc(S.search||'')}" placeholder="Suche nach Art, Farbe, Notiz …" aria-label="Suche"></div>`:''}
     ${S.filterOpen?filterPanel():''}
     <div class="grid">${list.map(i=>`<button class="tile ${S.sel?.has(i.id)?'sel':''}" data-a="edit" data-id="${i.id}" ${S.sel?`aria-pressed="${S.sel.has(i.id)}"`:''}>${S.sel?`<span class="check">${S.sel.has(i.id)?ICON.check:''}</span>`:''}
       <div class="ph"><img loading="lazy" src="${url(i)}" alt="${esc(i.category)}"></div>
@@ -536,7 +544,9 @@ function fieldsHTML(o, pre, id){
   <div class="field"><h3>Hauptfarbe <span class="muted">${esc(o.color||'')}</span></h3><div class="chips">${Object.entries(COLORS).map(([n,h])=>
     `<button class="sw ${o.color===n?'on':''}" style="background:${h}" data-a="${pre}-color" data-i="${id}" data-v="${n}" aria-label="${n}" aria-pressed="${o.color===n}" title="${n}"></button>`).join('')}</div></div>
   <div class="field"><h3>Stil</h3><div class="chips">${STYLES.map(s=>chip(s,o.styles.includes(s),`data-a="${pre}-style" data-i="${id}" data-v="${s}"`)).join('')}</div></div>
-  <div class="field"><h3>Jahreszeit</h3><div class="chips">${SEASONS.map(s=>chip(s,o.seasons.includes(s),`data-a="${pre}-season" data-i="${id}" data-v="${s}"`)).join('')}</div></div>`;
+  <div class="field"><h3>Jahreszeit</h3><div class="chips">${SEASONS.map(s=>chip(s,o.seasons.includes(s),`data-a="${pre}-season" data-i="${id}" data-v="${s}"`)).join('')}</div></div>
+  <div class="field"><h3>Material</h3><select data-c="${pre}-mat" data-i="${id}" aria-label="Material"><option value="" ${!o.material?'selected':''}>—</option>${MATERIALS.map(m=>`<option ${o.material===m?'selected':''}>${m}</option>`).join('')}</select></div>
+  <div class="field"><h3>Notiz</h3><input type="text" data-c="${pre}-note" data-i="${id}" value="${esc(o.note||'')}" placeholder="z. B. Streifen" maxlength="120" aria-label="Notiz"></div>`;
 }
 const toggleIn = (arr,v) => arr.includes(v) ? arr.filter(x=>x!==v) : [...arr, v];
 
@@ -574,7 +584,7 @@ function addFiles(files){
   for(const f of files){
     const sig = f.name+'|'+f.size+'|'+f.lastModified;
     const twin = S.queue.find(q=>q.sig===sig);
-    S.queue.push({id:crypto.randomUUID(), file:f, sig, status:'wait', step:'', keep:!twin, cat:'T-Shirt', color:'', styles:[], seasons:[], dup:twin?{q:twin.id}:null});
+    S.queue.push({id:crypto.randomUUID(), file:f, sig, status:'wait', step:'', keep:!twin, cat:'T-Shirt', color:'', styles:[], seasons:[], material:'', note:'', dup:twin?{q:twin.id}:null});
   }
   render(); processQueue();
 }
@@ -629,11 +639,11 @@ async function processOne(q){
   setStep(q,'Charly richtet es schön her …');
   let cut = await blobToCanvas(cutBlob);
   if(rec && Math.abs(rec.tilt)>=1.5) cut = rotateCanvas(cut, -rec.tilt);     // Schieflage laut Charly ausgleichen
-  const out = prepareCutout(cut, {clean:true, straighten:!hung, level:true});
+  const out = prepareCutout(cut, {clean:true, straighten:true, level:true});   // Bügel-Ausschnitt entfernt den Haken, alte Geraderichtung bleibt zusätzlich aktiv
   q.blob = await exportImage(out);
   q.preview = URL.createObjectURL(q.blob);
   q.hash = dhash(out);
-  if(rec){ q.cat=rec.category; q.color=rec.color; q.styles=rec.styles; q.seasons=rec.seasons; q.pending=false; }
+  if(rec){ q.cat=rec.category; q.color=rec.color; q.styles=rec.styles; q.seasons=rec.seasons; q.material=rec.material; q.pending=false; }
   else { q.color=detectColor(out); q.pending=true; }
   if(!q.dup){ const d = findDuplicate(q); if(d){ q.dup=d; q.keep=false; } }
 }
@@ -693,7 +703,7 @@ function cleanRec(r){
   const pick=(v,list,def)=>list.includes(v)?v:def;
   const arr=(v,list)=>Array.isArray(v)?[...new Set(v.filter(x=>list.includes(x)))]:[];
   return {category:pick(r.category,CATS,'T-Shirt'), color:pick(r.color,Object.keys(COLORS),'Grau'),
-    styles:arr(r.styles,STYLES), seasons:arr(r.seasons,SEASONS), box:Array.isArray(r.box)&&r.box.length===4?r.box.map(Number):null,
+    styles:arr(r.styles,STYLES), seasons:arr(r.seasons,SEASONS), material:pick(r.material,MATERIALS,''), box:Array.isArray(r.box)&&r.box.length===4?r.box.map(Number):null,
     tilt:Math.max(-30,Math.min(30,Number(r.tilt)||0)), hangerBottom:Math.max(0,Math.min(1000,Number(r.hanger_bottom)||0))};
 }
 function photoB64(c,max,white){
@@ -730,7 +740,7 @@ async function runPending(){
         const {data:blob,error:dErr}=await sb.storage.from(BUCKET).download(it.image_path);
         if(dErr) throw dErr;
         const r=cleanRec(await gemini({task:'classify', image:photoB64(await blobToCanvas(blob),768,true)}));
-        const {data,error}=await sb.from('items').update({category:r.category,color:r.color,styles:r.styles,seasons:r.seasons,pending:false}).eq('id',it.id).select().single();
+        const {data,error}=await sb.from('items').update({category:r.category,color:r.color,styles:r.styles,seasons:r.seasons,material:r.material||null,pending:false}).eq('id',it.id).select().single();
         if(error) throw error;
         Object.assign(it,data); done++;
         if(S.view==='schrank' || S.view==='dress') render();
@@ -871,7 +881,7 @@ async function restoreBackup(file){
       const path=`${S.user.id}/${crypto.randomUUID()}.${ext}`;
       const up=await sb.storage.from(BUCKET).upload(path, blob, {contentType:'image/'+ext});
       if(up.error) throw up.error;
-      const row={image_path:path, category:it.category, color:it.color, styles:it.styles||[], seasons:it.seasons||[], hash:it.hash||null, pending:!!it.pending, edited:!!it.edited, created_at:it.created_at};
+      const row={image_path:path, category:it.category, color:it.color, styles:it.styles||[], seasons:it.seasons||[], material:it.material||null, note:it.note||null, hash:it.hash||null, pending:!!it.pending, edited:!!it.edited, created_at:it.created_at};
       let res=await sb.from('items').insert({...row, id:it.id}).select().single();
       if(res.error) res=await sb.from('items').insert(row).select().single();
       if(res.error){ await sb.storage.from(BUCKET).remove([path]); throw res.error; }
@@ -1073,7 +1083,7 @@ async function saveItem(q){
   const path=`${S.user.id}/${crypto.randomUUID()}.${q.blob.type==='image/webp'?'webp':'png'}`;
   const up=await sb.storage.from(BUCKET).upload(path,q.blob,{contentType:q.blob.type});
   if(up.error) throw up.error;
-  const {data,error}=await sb.from('items').insert({image_path:path,category:q.cat,color:q.color,styles:q.styles,seasons:q.seasons,hash:q.hash,pending:!!q.pending && !q.touched,edited:!!q.touched}).select().single();
+  const {data,error}=await sb.from('items').insert({image_path:path,category:q.cat,color:q.color,styles:q.styles,seasons:q.seasons,material:q.material||null,note:q.note||null,hash:q.hash,pending:!!q.pending && !q.touched,edited:!!q.touched}).select().single();
   if(error){ await sb.storage.from(BUCKET).remove([path]); throw error; }
   S.items.push(data); S.urls[path]={url:q.preview};
 }
@@ -1082,8 +1092,22 @@ async function saveItem(q){
 function openEdit(id){
   const it=S.items.find(i=>i.id===id); if(!it) return;
   S.sheetMode='edit';
-  S.edit={id, cat:it.category, color:it.color, styles:[...(it.styles||[])], seasons:[...(it.seasons||[])], blob:null, preview:null, busy:false};
+  S.edit={id, cat:it.category, color:it.color, styles:[...(it.styles||[])], seasons:[...(it.seasons||[])], material:it.material||'', note:it.note||'', blob:null, preview:null, busy:false};
   renderSheet();
+}
+function renderViewSheet(){
+  const it=S.items.find(i=>i.id===S.viewId); if(!it) return closeSheet();
+  sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="${esc(it.category)}">
+    <div class="phead"><h2>${esc(it.category)}</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>
+    <img class="viewbig" src="${url(it)}" alt="${esc(it.category)}">
+    <div class="viewfield"><h3>Farbe</h3><span class="dot" style="background:${COLORS[it.color]||'#ccc'}"></span> ${esc(it.color||'—')}</div>
+    ${(it.styles||[]).length?`<div class="viewfield"><h3>Stil</h3>${esc((it.styles||[]).join(', '))}</div>`:''}
+    ${(it.seasons||[]).length?`<div class="viewfield"><h3>Jahreszeit</h3>${esc((it.seasons||[]).join(', '))}</div>`:''}
+    <div class="viewfield"><h3>Material</h3>${esc(it.material||'—')}</div>
+    <div class="viewfield"><h3>Notiz</h3>${esc(it.note||'—')}</div>
+    <div class="actions"><button class="btn" data-a="v-edit" data-id="${it.id}">Bearbeiten</button></div>
+  </div>`;
+  sheet.hidden=false;
 }
 function renderSheet(){
   if(S.sheetMode==='outfit') return renderOutfitSheet();
@@ -1096,6 +1120,7 @@ function renderSheet(){
   if(S.sheetMode==='suggest') return renderSuggest();
   if(S.sheetMode==='sharelink') return renderShareSheet();
   if(S.sheetMode==='backupready') return renderBackupReady();
+  if(S.sheetMode==='view') return renderViewSheet();
   const e=S.edit, it=S.items.find(i=>i.id===e.id);
   sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Teil bearbeiten">
     <div class="phead"><h2>${esc(e.cat)}</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>
@@ -1138,9 +1163,9 @@ async function saveEdit(btn){
   const e=S.edit, it=S.items.find(i=>i.id===e.id);
   btn.disabled=true;
   try{
-    const patch={category:e.cat,color:e.color,styles:e.styles,seasons:e.seasons};
+    const patch={category:e.cat,color:e.color,styles:e.styles,seasons:e.seasons,material:e.material||null,note:e.note||null};
     const same=(a,b)=>[...(a||[])].sort().join()===[...(b||[])].sort().join();
-    if(e.cat!==it.category || e.color!==it.color || !same(e.styles,it.styles) || !same(e.seasons,it.seasons)){ patch.edited=true; patch.pending=false; }
+    if(e.cat!==it.category || e.color!==it.color || !same(e.styles,it.styles) || !same(e.seasons,it.seasons) || (e.material||'')!==(it.material||'') || (e.note||'')!==(it.note||'')){ patch.edited=true; patch.pending=false; }
     if(e.blob){
       const c=await blobToCanvas(e.blob);
       const path=`${S.user.id}/${crypto.randomUUID()}.${e.blob.type==='image/webp'?'webp':'png'}`;
@@ -1316,7 +1341,7 @@ function rowHTML(s){
   return `<div class="row" style="--h:${s.h}">
     <button class="arrow" data-a="d-step" data-s="${s.key}" data-v="-1" aria-label="${s.label}: vorheriges Teil" ${canStep?'':'disabled'}>${ICON.chevL}</button>
     <div class="stage" data-swipe="${s.key}">
-      ${it?`<img class="${anim}" src="${url(it)}" alt="${esc(it.category)}" draggable="false">`:`<span class="muted small">Kein passendes Teil</span>`}
+      ${it?`<button class="stageimg" data-a="d-view" data-id="${it.id}" aria-label="${esc(it.category)} groß ansehen"><img class="${anim}" src="${url(it)}" alt="${esc(it.category)}" draggable="false"></button>`:`<span class="muted small">Kein passendes Teil</span>`}
       <div class="rowctl">
         <button class="ic ${locked?'on':''}" data-a="d-lock" data-s="${s.key}" aria-label="${locked?'Lösen':'Fixieren'}" title="${locked?'Lösen':'Fixieren'}" ${it?'':'disabled'}>${locked?ICON.lock:ICON.unlock}</button>
         <button class="ic" data-a="d-hide" data-s="${s.key}" aria-label="${s.label} ausblenden" title="Ausblenden">${ICON.eyeOff}</button>
@@ -1719,6 +1744,7 @@ const A = {
   't-go':(t)=>goTrip(t),
   'm-recog-go':(t)=>startRecognizeAll(t.dataset.v),
   ftoggle:()=>{ S.filterOpen=!S.filterOpen; render(); },
+  stoggle:()=>{ S.searchOpen=!S.searchOpen; if(!S.searchOpen) S.search=''; render(); if(S.searchOpen) setTimeout(()=>document.getElementById('schrank-search')?.focus(),50); },
   f:(t)=>{ const s=S.f[t.dataset.g], v=t.dataset.v; s.has(v)?s.delete(v):s.add(v); render(); },
   freset:()=>{ Object.values(S.f).forEach(s=>s.clear()); render(); },
   edit:(t)=>{ if(S.sel){ const id=t.dataset.id; S.sel.has(id)?S.sel.delete(id):S.sel.add(id); render(); return; } openEdit(t.dataset.id); },
@@ -1747,6 +1773,8 @@ const A = {
   'er-done':()=>{ const c=S.er.canvas, b=alphaBBox(c); if(!b){ toast('Alles wegradiert. Tipp auf Rückgängig.'); return; } S.er.onDone(fitCanvas(crop(c,b,0))); },
   'e-del':()=>deleteItem(),
   'd-step':(t)=>step(t.dataset.s,+t.dataset.v),
+  'd-view':(t)=>{ S.viewId=t.dataset.id; S.sheetMode='view'; renderViewSheet(); },
+  'v-edit':(t)=>openEdit(t.dataset.id),
   'd-lock':(t)=>{ const k=t.dataset.s; S.d.locked.has(k)?S.d.locked.delete(k):S.d.locked.add(k); render(); },
   'd-hide':(t)=>{ S.d.hidden.add(t.dataset.s); S.d.locked.delete(t.dataset.s); saveDressPrefs(); render(); },
   'd-show':(t)=>{ S.d.hidden.delete(t.dataset.s); saveDressPrefs(); render(); },
@@ -1811,10 +1839,16 @@ document.addEventListener('change',(e)=>{
   const t=e.target, c=t.dataset.c; if(!c) return;
   if(c==='files'){ if(t.files?.length) addFiles([...t.files]); t.value=''; }
   else if(c==='q-cat'||c==='e-cat'){ const o=qById(t.dataset.i); if(o){ o.cat=t.value; o.touched=true; if(c==='e-cat') renderSheet(); } }
+  else if(c==='q-mat'||c==='e-mat'){ const o=qById(t.dataset.i); if(o){ o.material=t.value; o.touched=true; } }
   else if(c==='q-keep'){ const o=qById(t.dataset.i); if(o){ o.keep=t.checked; render(); } }
   else if(c==='o-folder'){ S.osave.folder=t.value; renderOutfitSheet(); }
   else if(c==='oe-folder'){ S.oedit.folder=t.value; renderOEdit(); }
   else if(c==='restore'){ const f=t.files?.[0]; t.value=''; if(f && confirm('Teile aus dieser Sicherung wiederherstellen? Vorhandene Teile bleiben unverändert.')) restoreBackup(f); }
+});
+document.addEventListener('input',(e)=>{
+  const t=e.target, c=t.dataset.c; if(!c) return;
+  if(c==='q-note'||c==='e-note'){ const o=qById(t.dataset.i); if(o){ o.note=t.value; o.touched=true; } }
+  else if(c==='schrank-search'){ S.search=t.value; render(); }
 });
 document.addEventListener('keydown',(e)=>{ if(e.key==='Enter' && e.target.id==='sg-text'){ e.preventDefault(); runSuggest(e.target.value); return; } if(e.key==='Escape' && !sheet.hidden){ S.sheetMode==='erase' ? S.er.back() : closeSheet(); } });
 
