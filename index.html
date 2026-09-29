@@ -249,7 +249,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '7.5';
+const APP_VERSION = '7.6';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Accessoires'];
 const MATERIALS = ['Baumwolle','Leinen','Wolle','Cord','Denim','Leder','Seide','Synthetik','Gemischt'];
@@ -333,10 +333,10 @@ const S = {
 };
 function loadDressPrefs(){
   let p={}; try{ p=JSON.parse(localStorage.getItem('gk-dress')||'{}'); }catch{}
-  return {sel:{}, locked:new Set(), hidden:new Set(p.hidden||['acc']), kleid:!!p.kleid, seasonOn:p.seasonOn!==false, style:'', anim:null};
+  return {sel:{}, locked:new Set(), hidden:new Set(p.hidden||['acc']), kleid:!!p.kleid, seasonOn:p.seasonOn!==false, hideKleid:!!p.hideKleid, style:'', anim:null};
 }
 function saveDressPrefs(){
-  try{ localStorage.setItem('gk-dress', JSON.stringify({hidden:[...S.d.hidden], kleid:S.d.kleid, seasonOn:S.d.seasonOn})); }catch{}
+  try{ localStorage.setItem('gk-dress', JSON.stringify({hidden:[...S.d.hidden], kleid:S.d.kleid, seasonOn:S.d.seasonOn, hideKleid:S.d.hideKleid})); }catch{}
 }
 
 const app = document.getElementById('app');
@@ -805,6 +805,7 @@ function renderMenu(){
       <div class="menu">
         <button class="mitem" data-a="m-recog" ${S.items.length?'':'disabled'}>Alle neu erkennen<span class="muted small">Charly sortiert deine Teile neu ein</span></button>
         <button class="mitem" data-a="m-travel" ${S.items.length?'':'disabled'}>Reisemodus<span class="muted small">Outfits und Packliste für mehrere Tage</span></button>
+        <button class="mitem" data-a="m-kleid">${S.d.hideKleid?'Kleid-Modus wieder einblenden':'Kleid-Modus ausblenden'}<span class="muted small">Umschalter beim Anziehen ${S.d.hideKleid?'wieder anzeigen':'verstecken, falls nie gebraucht'}</span></button>
         <button class="mitem" data-a="m-backup" ${S.items.length?'':'disabled'}>Sicherung herunterladen<span class="muted small">Alle Fotos und Daten als ZIP-Datei</span></button>
         <label class="mitem" style="cursor:pointer">Aus Sicherung wiederherstellen<span class="muted small">ZIP-Datei auswählen, doppelte Teile werden übersprungen</span><input type="file" accept=".zip,application/zip" data-c="restore" hidden></label>
         ${isAdmin()?`<a class="mitem" href="https://supabase.com/dashboard/project/${PROJECT_REF}/auth/users" target="_blank" rel="noopener">Nutzer anlegen<span class="muted small">Öffnet die Nutzerverwaltung in Supabase</span></a>`:''}
@@ -1333,7 +1334,7 @@ function viewDress(){
   return `<div class="dress">
     ${editO?`<div class="editing"><span>Du bearbeitest „${esc(editO.name)}“</span><button class="linkbtn" data-a="d-endedit">Beenden</button></div>`:''}
     ${S.wx?`<div class="wx">Wien: ${esc(S.wx.text)}</div>`:''}
-    <div class="dbar">${chip('Nur '+curSeason(),S.d.seasonOn,'data-a="d-season"')}${chip('Kleid-Modus',S.d.kleid,'data-a="d-kleid"')}<button class="icbtn" data-a="d-share" aria-label="Diese Kombination teilen" title="Teilen">${ICON.share}</button></div>
+    <div class="dbar">${chip('Nur '+curSeason(),S.d.seasonOn,'data-a="d-season"')}${S.d.hideKleid?'':chip('Kleid-Modus',S.d.kleid,'data-a="d-kleid"')}<button class="icbtn" data-a="d-share" aria-label="Diese Kombination teilen" title="Teilen">${ICON.share}</button></div>
     <div class="chips scroll">${chip('Alle Stile',!S.d.style,'data-a="d-style" data-v=""')}${STYLES.map(s=>chip(s,S.d.style===s,`data-a="d-style" data-v="${s}"`)).join('')}</div>
     ${shown.map(rowHTML).join('')}
     ${hid.length?`<div class="hiddenrows"><span class="muted">Ausgeblendet:</span>${hid.map(s=>`<button class="chip" data-a="d-show" data-s="${s.key}">${s.label} einblenden</button>`).join('')}</div>`:''}
@@ -1768,6 +1769,7 @@ const A = {
   'm-recog-go':(t)=>startRecognizeAll(t.dataset.v),
   ftoggle:()=>{ S.filterOpen=!S.filterOpen; render(); },
   stoggle:()=>{ S.searchOpen=!S.searchOpen; if(!S.searchOpen) S.search=''; render(); if(S.searchOpen) setTimeout(()=>document.getElementById('schrank-search')?.focus(),50); },
+  'm-kleid':()=>{ S.d.hideKleid=!S.d.hideKleid; if(S.d.hideKleid) S.d.kleid=false; saveDressPrefs(); renderMenu(); },
   sortToggle:()=>{ S.sortBy=(S.sortBy||'color')==='color'?'cat':'color'; render(); },
   f:(t)=>{ const s=S.f[t.dataset.g], v=t.dataset.v; s.has(v)?s.delete(v):s.add(v); render(); },
   freset:()=>{ Object.values(S.f).forEach(s=>s.clear()); render(); },
