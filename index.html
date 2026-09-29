@@ -249,9 +249,11 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '7.6';
+const APP_VERSION = '8.1';
 const BUCKET = 'wardrobe';
-const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Accessoires'];
+const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
+const BAG_SIZES = ['Klein','Mittel','Groß'];
+const HEEL_HEIGHTS = ['Flach','Mittel','Hoch'];
 const MATERIALS = ['Baumwolle','Leinen','Wolle','Cord','Denim','Leder','Seide','Synthetik','Gemischt'];
 const STYLES = ['Freizeit','Locker','Festlich','Sport','Business','Show'];
 // Regenbogen-Reihenfolge für den Schrank, Schwarz/Grau/Weiß am Ende
@@ -276,6 +278,7 @@ const SLOTS = [
   {key:'unten', label:'Unterteil',     cats:['Hose','Kurze Hose','Rock'],    h:'clamp(160px,25vh,290px)'},
   {key:'kleid', label:'Kleid',         cats:['Kleid'],                       h:'clamp(260px,42vh,480px)'},
   {key:'schuhe',label:'Schuhe',        cats:['Schuhe'],                      h:'clamp(76px,11vh,120px)'},
+  {key:'tasche',label:'Tasche',         cats:['Tasche'],                      h:'clamp(90px,13vh,150px)'},
   {key:'acc',   label:'Accessoires',   cats:['Accessoires'],                 h:'clamp(70px,10vh,110px)'},
 ];
 
@@ -333,10 +336,10 @@ const S = {
 };
 function loadDressPrefs(){
   let p={}; try{ p=JSON.parse(localStorage.getItem('gk-dress')||'{}'); }catch{}
-  return {sel:{}, locked:new Set(), hidden:new Set(p.hidden||['acc']), kleid:!!p.kleid, seasonOn:p.seasonOn!==false, hideKleid:!!p.hideKleid, style:'', anim:null};
+  return {sel:{}, locked:new Set(), hidden:new Set(p.hidden||['acc']), kleid:!!p.kleid, seasonOn:p.seasonOn!==false, hideKleid:!!p.hideKleid, hideHeel:!!p.hideHeel, style:'', anim:null};
 }
 function saveDressPrefs(){
-  try{ localStorage.setItem('gk-dress', JSON.stringify({hidden:[...S.d.hidden], kleid:S.d.kleid, seasonOn:S.d.seasonOn, hideKleid:S.d.hideKleid})); }catch{}
+  try{ localStorage.setItem('gk-dress', JSON.stringify({hidden:[...S.d.hidden], kleid:S.d.kleid, seasonOn:S.d.seasonOn, hideKleid:S.d.hideKleid, hideHeel:S.d.hideHeel})); }catch{}
 }
 
 const app = document.getElementById('app');
@@ -555,6 +558,8 @@ function fieldsHTML(o, pre, id){
   <div class="field"><h3>Stil</h3><div class="chips">${STYLES.map(s=>chip(s,o.styles.includes(s),`data-a="${pre}-style" data-i="${id}" data-v="${s}"`)).join('')}</div></div>
   <div class="field"><h3>Jahreszeit</h3><div class="chips">${SEASONS.map(s=>chip(s,o.seasons.includes(s),`data-a="${pre}-season" data-i="${id}" data-v="${s}"`)).join('')}</div></div>
   <div class="field"><h3>Material</h3><select data-c="${pre}-mat" data-i="${id}" aria-label="Material"><option value="" ${!o.material?'selected':''}>—</option>${MATERIALS.map(m=>`<option ${o.material===m?'selected':''}>${m}</option>`).join('')}</select></div>
+  ${o.cat==='Tasche'?`<div class="field"><h3>Größe</h3><div class="chips">${BAG_SIZES.map(v=>chip(v,o.bagSize===v,`data-a="${pre}-bagsize" data-i="${id}" data-v="${v}"`)).join('')}</div></div>`:''}
+  ${o.cat==='Schuhe' && !S.d.hideHeel?`<div class="field"><h3>Absatzhöhe</h3><div class="chips">${HEEL_HEIGHTS.map(v=>chip(v,o.heel===v,`data-a="${pre}-heel" data-i="${id}" data-v="${v}"`)).join('')}</div></div>`:''}
   <div class="field"><h3>Notiz</h3><input type="text" data-c="${pre}-note" data-i="${id}" value="${esc(o.note||'')}" placeholder="z. B. Streifen" maxlength="120" aria-label="Notiz"></div>`;
 }
 const toggleIn = (arr,v) => arr.includes(v) ? arr.filter(x=>x!==v) : [...arr, v];
@@ -593,7 +598,7 @@ function addFiles(files){
   for(const f of files){
     const sig = f.name+'|'+f.size+'|'+f.lastModified;
     const twin = S.queue.find(q=>q.sig===sig);
-    S.queue.push({id:crypto.randomUUID(), file:f, sig, status:'wait', step:'', keep:!twin, cat:'T-Shirt', color:'', color2:'', styles:[], seasons:[], material:'', note:'', dup:twin?{q:twin.id}:null});
+    S.queue.push({id:crypto.randomUUID(), file:f, sig, status:'wait', step:'', keep:!twin, cat:'T-Shirt', color:'', color2:'', styles:[], seasons:[], material:'', note:'', bagSize:'', heel:'', dup:twin?{q:twin.id}:null});
   }
   render(); processQueue();
 }
@@ -806,6 +811,7 @@ function renderMenu(){
         <button class="mitem" data-a="m-recog" ${S.items.length?'':'disabled'}>Alle neu erkennen<span class="muted small">Charly sortiert deine Teile neu ein</span></button>
         <button class="mitem" data-a="m-travel" ${S.items.length?'':'disabled'}>Reisemodus<span class="muted small">Outfits und Packliste für mehrere Tage</span></button>
         <button class="mitem" data-a="m-kleid">${S.d.hideKleid?'Kleid-Modus wieder einblenden':'Kleid-Modus ausblenden'}<span class="muted small">Umschalter beim Anziehen ${S.d.hideKleid?'wieder anzeigen':'verstecken, falls nie gebraucht'}</span></button>
+        <button class="mitem" data-a="m-heel">${S.d.hideHeel?'Absatzhöhe wieder einblenden':'Absatzhöhe ausblenden'}<span class="muted small">Feld bei Schuhen ${S.d.hideHeel?'wieder anzeigen':'verstecken, falls nie gebraucht'}</span></button>
         <button class="mitem" data-a="m-backup" ${S.items.length?'':'disabled'}>Sicherung herunterladen<span class="muted small">Alle Fotos und Daten als ZIP-Datei</span></button>
         <label class="mitem" style="cursor:pointer">Aus Sicherung wiederherstellen<span class="muted small">ZIP-Datei auswählen, doppelte Teile werden übersprungen</span><input type="file" accept=".zip,application/zip" data-c="restore" hidden></label>
         ${isAdmin()?`<a class="mitem" href="https://supabase.com/dashboard/project/${PROJECT_REF}/auth/users" target="_blank" rel="noopener">Nutzer anlegen<span class="muted small">Öffnet die Nutzerverwaltung in Supabase</span></a>`:''}
@@ -893,7 +899,7 @@ async function restoreBackup(file){
       const path=`${S.user.id}/${crypto.randomUUID()}.${ext}`;
       const up=await sb.storage.from(BUCKET).upload(path, blob, {contentType:'image/'+ext});
       if(up.error) throw up.error;
-      const row={image_path:path, category:it.category, color:it.color, color2:it.color2||null, styles:it.styles||[], seasons:it.seasons||[], material:it.material||null, note:it.note||null, hash:it.hash||null, pending:!!it.pending, edited:!!it.edited, created_at:it.created_at};
+      const row={image_path:path, category:it.category, color:it.color, color2:it.color2||null, styles:it.styles||[], seasons:it.seasons||[], material:it.material||null, note:it.note||null, bag_size:it.bag_size||null, heel:it.heel||null, hash:it.hash||null, pending:!!it.pending, edited:!!it.edited, created_at:it.created_at};
       let res=await sb.from('items').insert({...row, id:it.id}).select().single();
       if(res.error) res=await sb.from('items').insert(row).select().single();
       if(res.error){ await sb.storage.from(BUCKET).remove([path]); throw res.error; }
@@ -1095,7 +1101,7 @@ async function saveItem(q){
   const path=`${S.user.id}/${crypto.randomUUID()}.${q.blob.type==='image/webp'?'webp':'png'}`;
   const up=await sb.storage.from(BUCKET).upload(path,q.blob,{contentType:q.blob.type});
   if(up.error) throw up.error;
-  const {data,error}=await sb.from('items').insert({image_path:path,category:q.cat,color:q.color,color2:q.color2||null,styles:q.styles,seasons:q.seasons,material:q.material||null,note:q.note||null,hash:q.hash,pending:!!q.pending && !q.touched,edited:!!q.touched}).select().single();
+  const {data,error}=await sb.from('items').insert({image_path:path,category:q.cat,color:q.color,color2:q.color2||null,styles:q.styles,seasons:q.seasons,material:q.material||null,note:q.note||null,bag_size:q.cat==='Tasche'?(q.bagSize||null):null,heel:q.cat==='Schuhe'?(q.heel||null):null,hash:q.hash,pending:!!q.pending && !q.touched,edited:!!q.touched}).select().single();
   if(error){ await sb.storage.from(BUCKET).remove([path]); throw error; }
   S.items.push(data); S.urls[path]={url:q.preview};
 }
@@ -1104,7 +1110,7 @@ async function saveItem(q){
 function openEdit(id){
   const it=S.items.find(i=>i.id===id); if(!it) return;
   S.sheetMode='edit';
-  S.edit={id, cat:it.category, color:it.color, color2:it.color2||'', styles:[...(it.styles||[])], seasons:[...(it.seasons||[])], material:it.material||'', note:it.note||'', blob:null, preview:null, busy:false};
+  S.edit={id, cat:it.category, color:it.color, color2:it.color2||'', styles:[...(it.styles||[])], seasons:[...(it.seasons||[])], material:it.material||'', note:it.note||'', bagSize:it.bag_size||'', heel:it.heel||'', blob:null, preview:null, busy:false};
   renderSheet();
 }
 function renderViewSheet(){
@@ -1117,6 +1123,8 @@ function renderViewSheet(){
     ${(it.styles||[]).length?`<div class="viewfield"><h3>Stil</h3>${esc((it.styles||[]).join(', '))}</div>`:''}
     ${(it.seasons||[]).length?`<div class="viewfield"><h3>Jahreszeit</h3>${esc((it.seasons||[]).join(', '))}</div>`:''}
     <div class="viewfield"><h3>Material</h3>${esc(it.material||'—')}</div>
+    ${it.category==='Tasche' && it.bag_size?`<div class="viewfield"><h3>Größe</h3>${esc(it.bag_size)}</div>`:''}
+    ${it.category==='Schuhe' && it.heel && !S.d.hideHeel?`<div class="viewfield"><h3>Absatzhöhe</h3>${esc(it.heel)}</div>`:''}
     <div class="viewfield"><h3>Notiz</h3>${esc(it.note||'—')}</div>
     <div class="actions"><button class="btn" data-a="v-edit" data-id="${it.id}">Bearbeiten</button></div>
   </div>`;
@@ -1176,9 +1184,9 @@ async function saveEdit(btn){
   const e=S.edit, it=S.items.find(i=>i.id===e.id);
   btn.disabled=true;
   try{
-    const patch={category:e.cat,color:e.color,color2:e.color2||null,styles:e.styles,seasons:e.seasons,material:e.material||null,note:e.note||null};
+    const patch={category:e.cat,color:e.color,color2:e.color2||null,styles:e.styles,seasons:e.seasons,material:e.material||null,note:e.note||null,bag_size:e.cat==='Tasche'?(e.bagSize||null):null,heel:e.cat==='Schuhe'?(e.heel||null):null};
     const same=(a,b)=>[...(a||[])].sort().join()===[...(b||[])].sort().join();
-    if(e.cat!==it.category || e.color!==it.color || (e.color2||'')!==(it.color2||'') || !same(e.styles,it.styles) || !same(e.seasons,it.seasons) || (e.material||'')!==(it.material||'') || (e.note||'')!==(it.note||'')){ patch.edited=true; patch.pending=false; }
+    if(e.cat!==it.category || e.color!==it.color || (e.color2||'')!==(it.color2||'') || !same(e.styles,it.styles) || !same(e.seasons,it.seasons) || (e.material||'')!==(it.material||'') || (e.note||'')!==(it.note||'') || (e.bagSize||'')!==(it.bag_size||'') || (e.heel||'')!==(it.heel||'')){ patch.edited=true; patch.pending=false; }
     if(e.blob){
       const c=await blobToCanvas(e.blob);
       const path=`${S.user.id}/${crypto.randomUUID()}.${e.blob.type==='image/webp'?'webp':'png'}`;
@@ -1388,6 +1396,12 @@ const neutralColor = (c,cat) => NEUTRAL.has(c) || (c==='Blau' && ['Hose','Kurze 
 const FORMAL=(i)=>{ const st=i.styles||[]; return st.includes('Festlich')||st.includes('Business'); };
 function levels(i){
   const st=i.styles||[], c=i.category, L=new Set();
+  if(c==='Tasche' && (i.bagSize||i.bag_size)){               // Taschengröße: klein wirkt festlich, groß wirkt leger
+    const sz=i.bagSize||i.bag_size;
+    if(sz==='Klein') return [3,4];
+    if(sz==='Groß') return [1,2];
+    return null;
+  }
   if(FORMAL(i)) L.add(4);
   if(st.includes('Sport')) L.add(1);
   if(st.includes('Freizeit')||st.includes('Locker')) L.add(2);
@@ -1497,7 +1511,7 @@ function shuffle(){
 function currentOutfitItems(){
   return visibleSlots().filter(s=>!S.d.hidden.has(s.key)).map(s=>currentItem(s,candidates(s))).filter(Boolean);
 }
-const brief=(i)=>({category:i.category, color:i.color, styles:i.styles||[], seasons:i.seasons||[]});
+const brief=(i)=>({category:i.category, color:i.color, styles:i.styles||[], seasons:i.seasons||[], bagSize:i.bag_size||undefined});
 let descRun=0;
 async function describeCurrent(){
   const its=currentOutfitItems(); if(!its.length || S.offline) return;
@@ -1770,6 +1784,7 @@ const A = {
   ftoggle:()=>{ S.filterOpen=!S.filterOpen; render(); },
   stoggle:()=>{ S.searchOpen=!S.searchOpen; if(!S.searchOpen) S.search=''; render(); if(S.searchOpen) setTimeout(()=>document.getElementById('schrank-search')?.focus(),50); },
   'm-kleid':()=>{ S.d.hideKleid=!S.d.hideKleid; if(S.d.hideKleid) S.d.kleid=false; saveDressPrefs(); renderMenu(); },
+  'm-heel':()=>{ S.d.hideHeel=!S.d.hideHeel; saveDressPrefs(); renderMenu(); },
   sortToggle:()=>{ S.sortBy=(S.sortBy||'color')==='color'?'cat':'color'; render(); },
   f:(t)=>{ const s=S.f[t.dataset.g], v=t.dataset.v; s.has(v)?s.delete(v):s.add(v); render(); },
   freset:()=>{ Object.values(S.f).forEach(s=>s.clear()); render(); },
@@ -1854,6 +1869,8 @@ const A = {
 for(const pre of ['q','e']){
   A[pre+'-color']=(t)=>{ const o=qById(t.dataset.i); if(o){ o.color=t.dataset.v; o.touched=true; rerender(pre); } };
   A[pre+'-color2']=(t)=>{ const o=qById(t.dataset.i); if(o){ o.color2=t.dataset.v; o.touched=true; rerender(pre); } };
+  A[pre+'-bagsize']=(t)=>{ const o=qById(t.dataset.i); if(o){ o.bagSize=o.bagSize===t.dataset.v?'':t.dataset.v; o.touched=true; rerender(pre); } };
+  A[pre+'-heel']=(t)=>{ const o=qById(t.dataset.i); if(o){ o.heel=o.heel===t.dataset.v?'':t.dataset.v; o.touched=true; rerender(pre); } };
   A[pre+'-style']=(t)=>{ const o=qById(t.dataset.i); if(o){ o.styles=toggleIn(o.styles,t.dataset.v); o.touched=true; rerender(pre); } };
   A[pre+'-season']=(t)=>{ const o=qById(t.dataset.i); if(o){ o.seasons=toggleIn(o.seasons,t.dataset.v); o.touched=true; rerender(pre); } };
 }
