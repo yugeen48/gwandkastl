@@ -248,7 +248,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '7.1';
+const APP_VERSION = '7.2';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Accessoires'];
 const MATERIALS = ['Baumwolle','Leinen','Wolle','Cord','Denim','Leder','Seide','Synthetik','Gemischt'];
@@ -1730,7 +1730,12 @@ function loadOutfit(id){
 
 /* ---------------- Ereignisse ---------------- */
 const qById = (id) => id==='x' ? S.edit : S.queue.find(q=>q.id===id);
-const rerender = (pre) => pre==='e' ? renderSheet() : render();
+const rerender = (pre) => {
+  if(pre!=='e'){ render(); return; }
+  const panel=sheet.querySelector('.panel'), y=panel?.scrollTop||0;   // Sprung beim Antippen von Stil/Farbe/Jahreszeit vermeiden
+  renderSheet();
+  const p2=sheet.querySelector('.panel'); if(p2) p2.scrollTop=y;
+};
 const A = {
   nav:(t)=>{ S.view=t.dataset.v; S.sel=null; render(); scrollTo(0,0); },
   logout:()=>{ if(confirm('Abmelden?')){ closeSheet(); sb.auth.signOut(); } },
