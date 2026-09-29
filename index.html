@@ -16,7 +16,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#FFFFFF; --ink:#000000; --soft:#F1F1EE; --muted:#6F6F6F; --line:#E2E2DF;
+  --bg:#F5F5F2; --ink:#000000; --soft:#EBEAE6; --muted:#6F6F6F; --line:#DEDDD8;
   --stage:#C9C9C4;   /* immer gleiches mittleres Grau hinter den Kleidungsstücken */
   --loden:#3F4B3A; --onaccent:#FFFFFF; --danger:#B3261E;
   --font:'Jost', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -43,9 +43,9 @@ h2{font-weight:400;font-size:20px}
 /* Kopf & Navigation */
 .top{position:sticky;top:0;z-index:20;background:color-mix(in srgb, var(--bg) 94%, transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
   padding:calc(env(safe-area-inset-top,0px) + 14px) 20px 12px;display:flex;align-items:center;gap:24px;border-bottom:1px solid var(--line)}
-.logo{font-weight:300;font-size:25px;letter-spacing:.01em}
+.logo{font-weight:300;font-size:29px;letter-spacing:.01em}
 .brand{display:flex;align-items:baseline;gap:8px;margin-right:auto;text-align:left;min-width:0}
-.owner{color:var(--muted);font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:inline-flex;align-items:center;gap:2px}
+.owner{color:var(--muted);font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:inline-flex;align-items:center;gap:2px}
 .owner svg{width:16px;height:16px;align-self:center}
 .bgbar{position:absolute;left:0;right:0;bottom:-1px;transform:translateY(100%);background:var(--bg);border-bottom:1px solid var(--line);padding:6px 20px 8px;font-size:13px}
 .bgbar[hidden]{display:none}
@@ -249,7 +249,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '8.1';
+const APP_VERSION = '8.2';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
