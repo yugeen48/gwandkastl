@@ -199,16 +199,16 @@ textarea{font:inherit}
 /* Sheet */
 .sheet{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:50;display:flex;align-items:flex-end;justify-content:center}
 .sheet[hidden]{display:none}
-.panel{background:var(--bg);width:100%;max-width:640px;max-height:92vh;overflow:auto;padding:20px 20px calc(24px + env(safe-area-inset-bottom,0px));border-radius:14px 14px 0 0;animation:up .22s ease-out}
+.panel{background:var(--bg);width:100%;max-width:640px;max-height:92vh;overflow:auto;padding:16px 20px calc(16px + env(safe-area-inset-bottom,0px));border-radius:14px 14px 0 0;animation:up .22s ease-out}
 @keyframes up{from{transform:translateY(30px);opacity:0}}
 @media (min-width:800px){.sheet{align-items:center}.panel{border-radius:4px}}
-.phead{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.phead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .ph.edit{max-width:340px;margin:0 auto}
 .spinner.over{position:absolute}
 .tools{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:12px 0 4px}
 .tool{border:1px solid var(--line);border-radius:2px;min-width:44px;height:40px;padding:0 10px;display:grid;place-items:center;font-size:14px}
 .tool svg{width:18px;height:18px}
-.actions{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}
+.actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
 .tool.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .erwrap{background:var(--stage);max-width:420px;margin:12px auto 0;aspect-ratio:4/5}
 .erwrap canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
@@ -245,7 +245,7 @@ textarea{font:inherit}
 .stageimg{background:none;border:0;padding:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;cursor:zoom-in}
 .sw.none{background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:12px;color:#999}
 .viewbig{width:100%;max-height:52vh;object-fit:contain;background:#eee;border-radius:12px}
-.viewfield{margin:10px 0}.viewfield h3{margin:0 0 4px;font-size:.8rem;color:var(--muted,#777)}
+.viewfield{margin:6px 0}.viewfield h3{margin:0 0 2px;font-size:.8rem;color:var(--muted,#777)}
 </style>
 </head>
 <body>
@@ -262,14 +262,14 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '9.10';
+const APP_VERSION = '9.12';
 const BUCKET = 'wardrobe';
-const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
+const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Weste','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
 const HEEL_HEIGHTS = ['Flach','Mittel','Hoch','Plateau'];
 const SHAFT_HEIGHTS = ['Niedrig','Stiefel'];
 const MATERIALS = ['Baumwolle','Leinen','Wolle','Cord','Denim','Leder','Seide','Synthetik','Gemischt'];
-const PATTERNS = ['Kein Muster','Streifen','Karo','Punkte','Blumen','Print/Motiv','Glitzer'];
+const PATTERNS = ['Streifen','Karo','Punkte','Blumen','Print/Motiv','Glitzer'];
 const STYLES = ['Freizeit','Festlich','Sport','Business','Show'];
 // Regenbogen-Reihenfolge für den Schrank, Schwarz/Grau/Weiß am Ende
 const COLOR_ORDER = ['Rot','Bordeaux','Rosa','Orange','Gelb','Oliv','Grün','Türkis','Blau','Marineblau','Violett','Braun','Beige','Weiß','Grau','Schwarz'];
@@ -289,7 +289,7 @@ const SO='Sommer', UE='Übergang', WI='Winter', ALL=[SO,UE,WI];
 const SLOTS = [
   {key:'kopf',  label:'Kopf',          cats:['Kopfbedeckung'],               h:'clamp(76px,11vh,120px)'},
   {key:'jacke', label:'Jacke/Mantel',  cats:['Jacke/Mantel'],                h:'clamp(140px,21vh,240px)'},
-  {key:'pulli', label:'Pullover & Sakko', cats:['Pullover','Sakko'],         h:'clamp(140px,21vh,240px)'},
+  {key:'pulli', label:'Pullover, Weste & Sakko', cats:['Pullover','Weste','Sakko'], h:'clamp(140px,21vh,240px)'},
   {key:'oben',  label:'Oberteil',      cats:['T-Shirt','Hemd/Bluse'],        h:'clamp(140px,21vh,240px)'},
   {key:'unten', label:'Unterteil',     cats:['Hose','Kurze Hose','Rock'],    h:'clamp(160px,25vh,290px)'},
   {key:'kleid', label:'Kleid',         cats:['Kleid'],                       h:'clamp(260px,42vh,480px)'},
