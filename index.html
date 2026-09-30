@@ -264,9 +264,9 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '9.15';
+const APP_VERSION = '9.17';
 const BUCKET = 'wardrobe';
-const CATS = ['Kopfbedeckung','T-Shirt','Longsleeve','Hemd/Bluse','Pullover','Weste','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
+const CATS = ['Kopfbedeckung','T-Shirt','T-Shirt Cropped','Longsleeve','Hemd/Bluse','Pullover','Weste','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
 const HEEL_HEIGHTS = ['Flach','Mittel','Hoch','Plateau'];
 const SHAFT_HEIGHTS = ['Niedrig','Stiefel'];
@@ -292,7 +292,8 @@ const SLOTS = [
   {key:'kopf',  label:'Kopf',          cats:['Kopfbedeckung'],               h:'clamp(76px,11vh,120px)'},
   {key:'jacke', label:'Jacke/Mantel',  cats:['Jacke/Mantel'],                h:'clamp(140px,21vh,240px)'},
   {key:'pulli', label:'Pullover, Weste & Sakko', cats:['Pullover','Weste','Sakko'], h:'clamp(140px,21vh,240px)'},
-  {key:'oben',  label:'Oberteil',      cats:['T-Shirt','Longsleeve','Hemd/Bluse'], h:'clamp(140px,21vh,240px)'},
+  {key:'hemden', label:'Hemden',       cats:['Hemd/Bluse'],                  h:'clamp(140px,21vh,240px)'},
+  {key:'oben',  label:'Oberteil',      cats:['T-Shirt','T-Shirt Cropped','Longsleeve','Hemd/Bluse'], h:'clamp(140px,21vh,240px)'},
   {key:'unten', label:'Unterteil',     cats:['Hose','Kurze Hose','Rock'],    h:'clamp(160px,25vh,290px)'},
   {key:'kleid', label:'Kleid',         cats:['Kleid'],                       h:'clamp(260px,42vh,480px)'},
   {key:'schuhe',label:'Schuhe',        cats:['Schuhe'],                      h:'clamp(76px,11vh,120px)'},
@@ -355,7 +356,7 @@ const S = {
 };
 function loadDressPrefs(){
   let p={}; try{ p=JSON.parse(localStorage.getItem('gk-dress')||'{}'); }catch{}
-  return {sel:{}, locked:new Set(), hidden:new Set(p.hidden||['acc']), kleid:!!p.kleid, seasonOn:p.seasonOn!==false, hideKleid:!!p.hideKleid, hideHeel:!!p.hideHeel, hideLoan:!!p.hideLoan, style:'', anim:null};
+  return {sel:{}, locked:new Set(), hidden:new Set(p.hidden||['acc','hemden']), kleid:!!p.kleid, seasonOn:p.seasonOn!==false, hideKleid:!!p.hideKleid, hideHeel:!!p.hideHeel, hideLoan:!!p.hideLoan, style:'', anim:null};
 }
 function saveDressPrefs(){
   try{ localStorage.setItem('gk-dress', JSON.stringify({hidden:[...S.d.hidden], kleid:S.d.kleid, seasonOn:S.d.seasonOn, hideKleid:S.d.hideKleid, hideHeel:S.d.hideHeel, hideLoan:S.d.hideLoan})); }catch{}
@@ -1455,10 +1456,20 @@ function renderEraseSheet(){
 
 /* ---------------- Anziehen ---------------- */
 function curSeason(){ const m=new Date().getMonth()+1; return (m===12||m<=2)?WI:(m>=6&&m<=8)?SO:UE; }
-function visibleSlots(){ return SLOTS.filter(s=>S.d.kleid ? !['oben','unten'].includes(s.key) : s.key!=='kleid'); }
+function visibleSlots(){ return SLOTS.filter(s=>S.d.kleid ? !['oben','unten','hemden'].includes(s.key) : s.key!=='kleid'); }
+// Solange "Hemden" eingeblendet ist, gehört Hemd/Bluse dorthin statt zu Oberteil (sonst wäre es doppelt wählbar).
+function effectiveCats(slot){
+  if(slot.key==='oben' && !S.d.hidden.has('hemden')) return slot.cats.filter(c=>c!=='Hemd/Bluse');
+  return slot.cats;
+}
+function slotForCategory(cat){
+  if(cat==='Hemd/Bluse') return SLOTS.find(s=>s.key===(S.d.hidden.has('hemden')?'oben':'hemden'));
+  return SLOTS.find(x=>x.cats.includes(cat));
+}
 function candidates(slot){
   const season=curSeason();
-  const list=S.items.filter(i=>slot.cats.includes(i.category)
+  const cats=effectiveCats(slot);
+  const list=S.items.filter(i=>cats.includes(i.category)
     && (!S.d.seasonOn || !(i.seasons||[]).length || i.seasons.includes(season))
     && (!S.d.style || (i.styles||[]).includes(S.d.style))
     && (S.d.hideLoan || !i.loaned_to));
@@ -1471,7 +1482,7 @@ function currentItem(slot,list){
   return it;
 }
 /* ---------------- Reisemodus ---------------- */
-function poolFor(slot,se=curSeason()){ return S.items.filter(i=>slot.cats.includes(i.category)&&(!(i.seasons||[]).length||i.seasons.includes(se))&&(S.d.hideLoan||!i.loaned_to)); }
+function poolFor(slot,se=curSeason()){ const cats=effectiveCats(slot); return S.items.filter(i=>cats.includes(i.category)&&(!(i.seasons||[]).length||i.seasons.includes(se))&&(S.d.hideLoan||!i.loaned_to)); }
 function planTrip(n,se=curSeason()){
   const use={}, plan=[], seen=new Set();
   const slotOf=(k)=>SLOTS.find(x=>x.key===k);
@@ -1709,7 +1720,7 @@ function repairSel(sel){
       const others=cur.filter(x=>x!==e).map(x=>x.it);
       const now=badness(e.it,others); if(!now) continue;
       const slot=SLOTS.find(x=>x.key===key), season=curSeason();
-      const alts=S.items.filter(i=>slot.cats.includes(i.category)&&i.id!==e.it.id&&(!(i.seasons||[]).length||i.seasons.includes(season)));
+      const alts=S.items.filter(i=>effectiveCats(slot).includes(i.category)&&i.id!==e.it.id&&(!(i.seasons||[]).length||i.seasons.includes(season)));
       let best=null,bb=now;
       for(const a of alts){ const b=badness(a,others); if(b<bb){ bb=b; best=a; } }
       if(best){ sel[key]=best.id; fixed=true; break; }
@@ -1778,7 +1789,7 @@ async function runSuggest(occ){
     const sel={}; let kleid=false;
     for(const n of (r.picks||[])){
       const it=S.items[n]; if(!it) continue;
-      const s=SLOTS.find(x=>x.cats.includes(it.category)); if(!s || sel[s.key]) continue;
+      const s=slotForCategory(it.category); if(!s || sel[s.key]) continue;
       sel[s.key]=it.id; if(s.key==='kleid') kleid=true;
     }
     if(kleid){ delete sel.oben; delete sel.unten; }
