@@ -258,7 +258,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '8.8';
+const APP_VERSION = '8.9';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
@@ -1147,7 +1147,8 @@ async function openMultikasten(){
     ]);
     if(ir.error) throw ir.error;
     S.mk.items=ir.data;
-    if(!ur.error) S.mk.users=Object.fromEntries((ur.data||[]).map(u=>[u.id,u.name]));
+    if(ur.error){ S.mk.userErr = ur.error.message||String(ur.error); }
+    else{ S.mk.users=Object.fromEntries((ur.data||[]).map(u=>[u.id,u.name])); S.mk.userCount=(ur.data||[]).length; }
     const paths=ir.data.map(i=>i.image_path).filter(p=>!S.urls[p]);
     if(paths.length){
       const {data:ud,error:ue}=await sb.storage.from(BUCKET).createSignedUrls(paths, 60*60*8);
@@ -1165,7 +1166,7 @@ function renderMultikasten(){
   const body = st.loading ? `<p class="muted">Lädt …</p>`
     : st.err ? `<p class="muted">Konnte nicht geladen werden (${esc(st.err)}).</p>`
     : `<div class="field"><input type="text" data-c="mk-search" value="${esc(st.search||'')}" placeholder="Suche nach Art, Farbe, Muster, Material …" aria-label="Suche"></div>
-       <p class="muted small" style="margin:-6px 0 10px">${list.length} von ${items.length} Teilen</p>
+       <p class="muted small" style="margin:-6px 0 10px">${list.length} von ${items.length} Teilen${st.userErr?` · Namen: Fehler (${esc(st.userErr)})`:` · ${st.userCount??0} Namen geladen`}</p>
        <div class="grid">${list.map(i=>`<div class="tile">
          <div class="ph"><img loading="lazy" src="${S.urls[i.image_path]?.url||''}" alt="${esc(i.category)}"></div>
          <div class="meta"><span class="dot" style="background:${COLORS[i.color]||'#ccc'}"></span>${esc(i.category)}</div>
