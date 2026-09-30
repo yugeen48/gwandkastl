@@ -259,7 +259,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '9.0';
+const APP_VERSION = '9.2';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
@@ -300,6 +300,7 @@ const ICON = {
   shirt:I('<path d="M8 3 3 6l2 4 2-1v12h10V9l2 1 2-4-5-3a4 4 0 0 1-8 0z"/>'),
   folder:I('<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/>'),
   plus:I('<path d="M12 5v14M5 12h14"/>'),
+  box:I('<path d="M3 8 12 4l9 4-9 4-9-4Z"/><path d="M3 8v9l9 4V12"/><path d="M21 8v9l-9 4V12"/>'),
   logout:I('<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 16l4-4-4-4M14 12H4"/>'),
   chevL:I('<path d="m15 5-7 7 7 7"/>'), chevR:I('<path d="m9 5 7 7-7 7"/>'),
   lock:I('<rect x="5" y="11" width="14" height="9" rx="1.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
@@ -348,10 +349,10 @@ const S = {
 };
 function loadDressPrefs(){
   let p={}; try{ p=JSON.parse(localStorage.getItem('gk-dress')||'{}'); }catch{}
-  return {sel:{}, locked:new Set(), hidden:new Set(p.hidden||['acc']), kleid:!!p.kleid, seasonOn:p.seasonOn!==false, hideKleid:!!p.hideKleid, hideHeel:!!p.hideHeel, style:'', anim:null};
+  return {sel:{}, locked:new Set(), hidden:new Set(p.hidden||['acc']), kleid:!!p.kleid, seasonOn:p.seasonOn!==false, hideKleid:!!p.hideKleid, hideHeel:!!p.hideHeel, hideLoan:!!p.hideLoan, style:'', anim:null};
 }
 function saveDressPrefs(){
-  try{ localStorage.setItem('gk-dress', JSON.stringify({hidden:[...S.d.hidden], kleid:S.d.kleid, seasonOn:S.d.seasonOn, hideKleid:S.d.hideKleid, hideHeel:S.d.hideHeel})); }catch{}
+  try{ localStorage.setItem('gk-dress', JSON.stringify({hidden:[...S.d.hidden], kleid:S.d.kleid, seasonOn:S.d.seasonOn, hideKleid:S.d.hideKleid, hideHeel:S.d.hideHeel, hideLoan:S.d.hideLoan})); }catch{}
 }
 
 const app = document.getElementById('app');
@@ -395,7 +396,7 @@ async function boot(){
 async function start(){
   app.innerHTML = `<div class="login"><div class="spinner"></div></div>`;
   for(let attempt=0; attempt<4; attempt++){
-    try{ await loadAll(); saveSnapshot(); setBg('offline',null); render(); runPending(); return; }
+    try{ await loadAll(); saveSnapshot(); setBg('offline',null); render(); runPending(); checkLoanReminders(); return; }
     catch(e){
       if((!navigator.onLine || /fetch|network|load failed/i.test(e.message||'')) && loadSnapshot()){ goOffline(); return; }
       // Frisch ausgestellte Anmeldung kann Sekundenbruchteile "aus der Zukunft" kommen – kurz warten und nochmal
@@ -464,12 +465,12 @@ async function refreshUrls(all){
 }
 
 /* ---------------- Rahmen ---------------- */
-const TABS = [['schrank','Schrank','hanger'],['dress','Anziehen','shirt'],['outfits','Outfits','folder'],['add','Hinzufügen','plus']];
+const TABS = [['schrank','Kastl','hanger'],['dress','Anziehen','shirt'],['outfits','Outfits','folder'],['add','Hinzufügen','plus']];
 function render(){
   if(S.items.length && Date.now()-S.urlTime > 6*3600e3){ refreshUrls(true).then(render); return; }
   const view = {schrank:viewSchrank, dress:viewDress, outfits:viewOutfits, add:viewAdd}[S.view]();
   app.innerHTML = `<header class="top"><button class="brand" data-a="menu" aria-label="Menü öffnen"><span class="logo">Gwandkastl</span><span class="owner">von ${esc(userName())}${ICON.chevD}</span></button>
-    <nav class="nav">${TABS.filter(t=>t[0]!=='add').map(t=>`<button data-a="nav" data-v="${t[0]}" class="${S.view===t[0]?'on':''}">${t[1]}</button>`).join('')}<button class="navadd icbtn ${S.view==='add'?'on':''}" data-a="nav" data-v="add" aria-label="Hinzufügen">${ICON.plus}</button></nav>
+    <nav class="nav">${TABS.filter(t=>t[0]!=='add').map(t=>`<button data-a="nav" data-v="${t[0]}" class="${S.view===t[0]?'on':''}">${t[1]}</button>`).join('')}${S.d.hideLoan?'':`<button class="navadd icbtn" data-a="loans" aria-label="Verliehene Teile">${ICON.box}</button>`}<button class="navadd icbtn ${S.view==='add'?'on':''}" data-a="nav" data-v="add" aria-label="Hinzufügen">${ICON.plus}</button></nav>
     ${bgBarHTML()}</header>
     <main>${view}</main>
     <nav class="tabbar">${TABS.map(t=>`<button data-a="nav" data-v="${t[0]}" class="${S.view===t[0]?'on':''}">${ICON[t[2]]}<span>${t[1]}</span></button>`).join('')}</nav>`;
@@ -487,7 +488,7 @@ function filtered(){
     (!q || [i.category,i.color,i.color2,i.material,i.pattern,i.note,...(i.styles||[]),...(i.seasons||[])].filter(Boolean).some(x=>x.toLowerCase().includes(q))));
 }
 function viewSchrank(){
-  if(!S.items.length) return `<section class="empty"><h1>Dein Schrank ist noch leer</h1>
+  if(!S.items.length) return `<section class="empty"><h1>Dein Kastl ist noch leer</h1>
     <p>Fotografiere ein Kleidungsstück. Freistellen und Einordnen passieren automatisch.</p>
     <button class="btn" data-a="nav" data-v="add">Erstes Teil hinzufügen</button></section>`;
   const co=(c)=>{ const i=COLOR_ORDER.indexOf(c); return i<0?99:i; };
@@ -496,7 +497,7 @@ function viewSchrank(){
     ? (CATS.indexOf(a.category)-CATS.indexOf(b.category) || co(a.color)-co(b.color) || (b.created_at>a.created_at?1:-1))
     : (co(a.color)-co(b.color) || CATS.indexOf(a.category)-CATS.indexOf(b.category) || (b.created_at>a.created_at?1:-1)));
   const nf = Object.values(S.f).reduce((a,s)=>a+s.size,0);
-  return `<div class="head"><h1>Schrank</h1><span class="count">${list.length===S.items.length?`${list.length} Teile`:`${list.length} von ${S.items.length}`}</span>
+  return `<div class="head"><h1>Kastl</h1><span class="count">${list.length===S.items.length?`${list.length} Teile`:`${list.length} von ${S.items.length}`}</span>
     <button class="icbtn" data-a="stoggle" aria-label="Suchen" aria-expanded="${!!S.searchOpen}">${ICON.search||'🔍'}</button>
     <button class="btn ghost sm push" data-a="sortToggle" title="Sortierung wechseln">${byCat?'Nach Art':'Nach Farbe'}</button>
     <button class="btn ghost sm" data-a="ftoggle" aria-expanded="${S.filterOpen}">Filter${nf?` (${nf})`:''}</button>
@@ -505,7 +506,7 @@ function viewSchrank(){
     ${S.filterOpen?filterPanel():''}
     <div class="grid">${list.map(i=>`<button class="tile ${S.sel?.has(i.id)?'sel':''}" data-a="edit" data-id="${i.id}" ${S.sel?`aria-pressed="${S.sel.has(i.id)}"`:''}>${S.sel?`<span class="check">${S.sel.has(i.id)?ICON.check:''}</span>`:''}
       <div class="ph"><img loading="lazy" src="${url(i)}" alt="${esc(i.category)}"></div>
-      <div class="meta"><span class="dot" style="background:${COLORS[i.color]||'#ccc'}"></span>${i.color2?`<span class="dot2" style="background:${COLORS[i.color2]||'#ccc'}"></span>`:''}${esc(i.category)}</div>${i.pending?'<div class="pend">Erkennung ausstehend</div>':''}</button>`).join('')}</div>
+      <div class="meta"><span class="dot" style="background:${COLORS[i.color]||'#ccc'}"></span>${i.color2?`<span class="dot2" style="background:${COLORS[i.color2]||'#ccc'}"></span>`:''}${esc(i.category)}</div>${i.pending?'<div class="pend">Erkennung ausstehend</div>':''}${(!S.d.hideLoan && i.loaned_to)?`<div class="pend">Verliehen an ${esc(i.loaned_to)}</div>`:''}</button>`).join('')}</div>
     ${list.length?'':'<p class="muted">Kein Teil passt zu diesem Filter.</p>'}
     ${S.sel?`<div class="bulkbar"><span class="count">${S.sel.size} ausgewählt</span>
       <button class="btn ghost sm" data-a="sel-all">${S.sel.size===list.length&&list.length?'Keine':'Alle'}</button>
@@ -574,7 +575,11 @@ function fieldsHTML(o, pre, id){
   ${o.cat==='Tasche'?`<div class="field"><h3>Größe</h3><div class="chips">${BAG_SIZES.map(v=>chip(v,o.bagSize===v,`data-a="${pre}-bagsize" data-i="${id}" data-v="${v}"`)).join('')}</div></div>`:''}
   ${o.cat==='Schuhe' && !S.d.hideHeel?`<div class="field"><h3>Absatzhöhe</h3><div class="chips">${HEEL_HEIGHTS.map(v=>chip(v,o.heel===v,`data-a="${pre}-heel" data-i="${id}" data-v="${v}"`)).join('')}</div></div>`:''}
   ${o.cat==='Schuhe'?`<div class="field"><h3>Schafthöhe</h3><select data-c="${pre}-shaft" data-i="${id}" aria-label="Schafthöhe"><option value="" ${!o.shaft?'selected':''}>—</option>${SHAFT_HEIGHTS.map(v=>`<option ${o.shaft===v?'selected':''}>${v}</option>`).join('')}</select></div>`:''}
-  <div class="field"><h3>Notiz</h3><input type="text" data-c="${pre}-note" data-i="${id}" value="${esc(o.note||'')}" placeholder="z. B. Streifen" maxlength="120" aria-label="Notiz"></div>`;
+  <div class="field"><h3>Notiz</h3><input type="text" data-c="${pre}-note" data-i="${id}" value="${esc(o.note||'')}" placeholder="z. B. Streifen" maxlength="120" aria-label="Notiz"></div>
+  ${pre==='e' && !S.d.hideLoan ? (o.loanedAt
+    ? `<div class="field"><h3>Verliehen an</h3><input type="text" data-c="e-loanto" data-i="${id}" value="${esc(o.loanedTo||'')}" maxlength="60" aria-label="Verliehen an"><p class="muted small">Seit ${loanDays(o.loanedAt)} Tagen · <button class="linkbtn" data-a="e-loan-return">Zurückerhalten</button></p></div>`
+    : `<div class="field"><h3>Verleihen</h3><div class="inline"><input type="text" data-c="e-loanto" data-i="${id}" value="${esc(o.loanedTo||'')}" placeholder="An wen?" maxlength="60" aria-label="An wen verliehen"><button class="btn ghost sm" data-a="e-loan-start">Verleihen</button></div></div>`
+  ) : ''}`;
 }
 const toggleIn = (arr,v) => arr.includes(v) ? arr.filter(x=>x!==v) : [...arr, v];
 
@@ -601,7 +606,7 @@ function qCard(q){
   let dup='';
   if(q.dup){
     const src = q.dup.item ? url(S.items.find(i=>i.id===q.dup.item)) : (S.queue.find(x=>x.id===q.dup.q)?.preview||'');
-    dup = `<div class="note">${src?`<img src="${src}" alt="">`:''}<span>Sieht aus wie ein Teil, das schon ${q.dup.item?'im Schrank':'in dieser Auswahl'} ist.</span></div>`;
+    dup = `<div class="note">${src?`<img src="${src}" alt="">`:''}<span>Sieht aus wie ein Teil, das schon ${q.dup.item?'im Kastl':'in dieser Auswahl'} ist.</span></div>`;
   }
   return `<div class="rcard"><div><div class="ph"><img src="${q.preview}" alt="Freigestelltes Teil"></div>
     <label class="keep"><input type="checkbox" data-c="q-keep" data-i="${q.id}" ${q.keep?'checked':''}> Übernehmen</label>
@@ -733,7 +738,9 @@ function cleanRec(r){
   const arr=(v,list)=>Array.isArray(v)?[...new Set(v.filter(x=>list.includes(x)))]:[];
   const col2=Object.keys(COLORS).includes(r.color2)&&r.color2!==r.color?r.color2:'';
   return {category:pick(r.category,CATS,'T-Shirt'), color:pick(r.color,Object.keys(COLORS),'Grau'), color2:col2,
-    styles:arr(r.styles,STYLES), seasons:arr(r.seasons,SEASONS), material:pick(r.material,MATERIALS,''), box:Array.isArray(r.box)&&r.box.length===4?r.box.map(Number):null,
+    styles:arr(r.styles,STYLES), seasons:arr(r.seasons,SEASONS), material:pick(r.material,MATERIALS,''),
+    pattern:pick(r.pattern,PATTERNS,''), shaft:pick(r.shaft,SHAFT_HEIGHTS,''),
+    box:Array.isArray(r.box)&&r.box.length===4?r.box.map(Number):null,
     tilt:Math.max(-30,Math.min(30,Number(r.tilt)||0)), hangerBottom:Math.max(0,Math.min(1000,Number(r.hanger_bottom)||0))};
 }
 function photoB64(c,max,white){
@@ -770,7 +777,7 @@ async function runPending(){
         const {data:blob,error:dErr}=await sb.storage.from(BUCKET).download(it.image_path);
         if(dErr) throw dErr;
         const r=cleanRec(await gemini({task:'classify', image:photoB64(await blobToCanvas(blob),768,true)}));
-        const {data,error}=await sb.from('items').update({category:r.category,color:r.color,color2:r.color2||null,styles:r.styles,seasons:r.seasons,material:r.material||null,pending:false}).eq('id',it.id).select().single();
+        const {data,error}=await sb.from('items').update({category:r.category,color:r.color,color2:r.color2||null,styles:r.styles,seasons:r.seasons,material:r.material||null,pattern:r.pattern||null,shaft:(r.shaft&&r.shaft!=='Nicht zutreffend')?r.shaft:null,pending:false}).eq('id',it.id).select().single();
         if(error) throw error;
         Object.assign(it,data); done++;
         if(S.view==='schrank' || S.view==='dress') render();
@@ -816,12 +823,13 @@ function renderMenu(){
     body=`<div class="menu">
       <button class="mtoggle" data-a="m-kleid"><span class="mtext">Kleid-Modus<span class="muted small">Umschalter beim Anziehen anzeigen</span></span><span class="mswitch ${S.d.hideKleid?'':'on'}"></span></button>
       <button class="mtoggle" data-a="m-heel"><span class="mtext">Absatzhöhe<span class="muted small">Feld bei Schuhen anzeigen</span></span><span class="mswitch ${S.d.hideHeel?'':'on'}"></span></button>
+      <button class="mtoggle" data-a="m-loan"><span class="mtext">Verleih-Tracker<span class="muted small">Teile als verliehen markieren</span></span><span class="mswitch ${S.d.hideLoan?'':'on'}"></span></button>
       </div>
       <div class="actions" style="margin-top:14px"><button class="btn ghost" data-a="m-back">Zurück</button></div>`;
   }else if(S.menuStep==='admin'){
     body=`<div class="menu">
       <a class="mitem" href="https://supabase.com/dashboard/project/${PROJECT_REF}/auth/users" target="_blank" rel="noopener">Nutzer anlegen<span class="muted small">Öffnet die Nutzerverwaltung in Supabase</span></a>
-      <button class="mitem" data-a="m-multikasten">Multikasten<span class="muted small">Alle Kleidungsstücke aller Nutzer ansehen, nur lesen</span></button>
+      <button class="mitem" data-a="m-multikasten">Multikastl<span class="muted small">Alle Kleidungsstücke aller Nutzer ansehen, nur lesen</span></button>
       </div>
       <div class="actions" style="margin-top:14px"><button class="btn ghost" data-a="m-back">Zurück</button></div>`;
   }else if(S.menuStep==='recog'){
@@ -839,7 +847,7 @@ function renderMenu(){
         <button class="mitem" data-a="m-display">Anzeige-Einstellungen<span class="muted small">Kleid-Modus und Absatzhöhe ein- oder ausblenden</span></button>
         <button class="mitem" data-a="m-backup" ${S.items.length?'':'disabled'}>Sicherung herunterladen<span class="muted small">Alle Fotos und Daten als ZIP-Datei</span></button>
         <label class="mitem" style="cursor:pointer">Aus Sicherung wiederherstellen<span class="muted small">ZIP-Datei auswählen, doppelte Teile werden übersprungen</span><input type="file" accept=".zip,application/zip" data-c="restore" hidden></label>
-        ${isAdmin()?`<button class="mitem" data-a="m-admin">Admin<span class="muted small">Nutzerverwaltung und Multikasten</span></button>`:''}
+        ${isAdmin()?`<button class="mitem" data-a="m-admin">Admin<span class="muted small">Nutzerverwaltung und Multikastl</span></button>`:''}
         <button class="mitem" data-a="logout">Abmelden<span class="muted small">${esc(S.user?.email||'')}</span></button>
       </div>
       <p class="muted small" style="margin-top:14px">Version ${APP_VERSION}${S.fnVersion?(' · Charly v'+esc(S.fnVersion)):''}</p>`;
@@ -1135,8 +1143,35 @@ async function saveItem(q){
 function openEdit(id){
   const it=S.items.find(i=>i.id===id); if(!it) return;
   S.sheetMode='edit';
-  S.edit={id, cat:it.category, color:it.color, color2:it.color2||'', styles:[...(it.styles||[])], seasons:[...(it.seasons||[])], material:it.material||'', pattern:it.pattern||'', note:it.note||'', bagSize:it.bag_size||'', heel:it.heel||'', shaft:it.shaft||'', blob:null, preview:null, busy:false};
+  S.edit={id, cat:it.category, color:it.color, color2:it.color2||'', styles:[...(it.styles||[])], seasons:[...(it.seasons||[])], material:it.material||'', pattern:it.pattern||'', note:it.note||'', bagSize:it.bag_size||'', heel:it.heel||'', shaft:it.shaft||'', loanedTo:it.loaned_to||'', loanedAt:it.loaned_at||null, blob:null, preview:null, busy:false};
   renderSheet();
+}
+function checkLoanReminders(){
+  if(S.d.hideLoan) return;
+  const overdue=S.items.filter(i=>i.loaned_to && loanDays(i.loaned_at)>=20);
+  if(overdue.length===1) toast(`${overdue[0].category} ist seit ${loanDays(overdue[0].loaned_at)} Tagen bei ${overdue[0].loaned_to} verliehen`);
+  else if(overdue.length>1) toast(`${overdue.length} Teile sind seit mind. 20 Tagen verliehen`);
+}
+function loanDays(iso){ if(!iso) return 0; return Math.max(0, Math.floor((Date.now()-new Date(iso).getTime())/86400000)); }
+function renderLoans(){
+  const list=S.items.filter(i=>i.loaned_to).sort((a,b)=>new Date(a.loaned_at)-new Date(b.loaned_at));
+  const body = list.length ? `<div class="grid">${list.map(i=>`<div class="tile">
+      <div class="ph"><img loading="lazy" src="${url(i)}" alt="${esc(i.category)}"></div>
+      <div class="meta"><span class="dot" style="background:${COLORS[i.color]||'#ccc'}"></span>${esc(i.category)}</div>
+      <div class="muted small">An ${esc(i.loaned_to)}</div>
+      <div class="muted small">Seit ${loanDays(i.loaned_at)} Tagen${loanDays(i.loaned_at)>=20?' · Erinnerung fällig':''}</div>
+      <button class="btn ghost sm" style="margin-top:6px" data-a="loan-return" data-id="${i.id}">Zurückerhalten</button>
+    </div>`).join('')}</div>` : `<p class="muted">Gerade ist nichts verliehen.</p>`;
+  sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Verliehene Teile">
+    <div class="phead"><h2>Verliehen</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>${body}</div>`;
+  sheet.hidden=false;
+}
+async function returnLoan(id){
+  const it=S.items.find(i=>i.id===id); if(!it) return;
+  const {error}=await sb.from('items').update({loaned_to:null, loaned_at:null}).eq('id',id);
+  if(error){ toast('Fehlgeschlagen: '+(error.message||error)); return; }
+  it.loaned_to=null; it.loaned_at=null;
+  renderLoans();
 }
 async function openMultikasten(){
   S.sheetMode='multikasten'; S.mk={loading:true, items:null, users:{}, search:S.mk?.search||'', err:null};
@@ -1168,15 +1203,35 @@ function renderMultikasten(){
     : st.err ? `<p class="muted">Konnte nicht geladen werden (${esc(st.err)}).</p>`
     : `<div class="field"><input type="text" data-c="mk-search" value="${esc(st.search||'')}" placeholder="Suche nach Art, Farbe, Muster, Material …" aria-label="Suche"></div>
        <p class="muted small" style="margin:-6px 0 10px">${list.length} von ${items.length} Teilen${st.userErr?` · Namen: Fehler (${esc(st.userErr)})`:` · ${st.userCount??0} Namen geladen`}</p>
-       <div class="grid">${list.map(i=>`<div class="tile">
+       <div class="grid">${list.map(i=>`<button class="tile" data-a="mk-view" data-id="${i.id}">
          <div class="ph"><img loading="lazy" src="${S.urls[i.image_path]?.url||''}" alt="${esc(i.category)}"></div>
          <div class="meta"><span class="dot" style="background:${COLORS[i.color]||'#ccc'}"></span>${i.color2?`<span class="dot2" style="background:${COLORS[i.color2]||'#ccc'}"></span>`:''}${esc(i.category)}</div>
-         <div class="muted small">${[i.color2,i.pattern,i.material].filter(Boolean).map(esc).join(' · ')}</div>
+         <div class="muted small">${[i.pattern,i.material].filter(Boolean).map(esc).join(' · ')}</div>
          <div class="muted small" style="margin-top:2px">${esc(st.users[i.user_id]||'Unbekannt')}</div>
-       </div>`).join('')}</div>
+       </button>`).join('')}</div>
        ${list.length?'':'<p class="muted">Kein Teil passt zu dieser Suche.</p>'}`;
-  sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Multikasten">
-    <div class="phead"><h2>Multikasten</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>${body}</div>`;
+  sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Multikastl">
+    <div class="phead"><h2>Multikastl</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>${body}</div>`;
+  sheet.hidden=false;
+}
+function renderMkFullView(){
+  const it=(S.mk?.items||[]).find(i=>i.id===S.mk.viewId); if(!it) return renderMultikasten();
+  sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="${esc(it.category)}">
+    <div class="phead"><h2>${esc(it.category)}</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>
+    <img class="viewbig" src="${S.urls[it.image_path]?.url||''}" alt="${esc(it.category)}">
+    <div class="viewfield"><h3>Farbe</h3><span class="dot" style="background:${COLORS[it.color]||'#ccc'}"></span> ${esc(it.color||'—')}</div>
+    ${it.color2?`<div class="viewfield"><h3>Nebenfarbe</h3><span class="dot" style="background:${COLORS[it.color2]||'#ccc'}"></span> ${esc(it.color2)}</div>`:''}
+    ${(it.styles||[]).length?`<div class="viewfield"><h3>Stil</h3>${esc((it.styles||[]).join(', '))}</div>`:''}
+    ${(it.seasons||[]).length?`<div class="viewfield"><h3>Jahreszeit</h3>${esc((it.seasons||[]).join(', '))}</div>`:''}
+    <div class="viewfield"><h3>Material</h3>${esc(it.material||'—')}</div>
+    ${it.pattern?`<div class="viewfield"><h3>Muster</h3>${esc(it.pattern)}</div>`:''}
+    ${it.category==='Tasche' && it.bag_size?`<div class="viewfield"><h3>Größe</h3>${esc(it.bag_size)}</div>`:''}
+    ${it.category==='Schuhe' && it.heel?`<div class="viewfield"><h3>Absatzhöhe</h3>${esc(it.heel)}</div>`:''}
+    ${it.category==='Schuhe' && it.shaft?`<div class="viewfield"><h3>Schafthöhe</h3>${esc(it.shaft)}</div>`:''}
+    <div class="viewfield"><h3>Notiz</h3>${esc(it.note||'—')}</div>
+    <div class="viewfield"><h3>Von</h3>${esc((S.mk.users||{})[it.user_id]||'Unbekannt')}</div>
+    <div class="actions"><button class="btn ghost" data-a="mk-back">Zurück</button></div>
+  </div>`;
   sheet.hidden=false;
 }
 function renderViewSheet(){
@@ -1211,6 +1266,8 @@ function renderSheet(){
   if(S.sheetMode==='backupready') return renderBackupReady();
   if(S.sheetMode==='view') return renderViewSheet();
   if(S.sheetMode==='multikasten') return renderMultikasten();
+  if(S.sheetMode==='mkview') return renderMkFullView();
+  if(S.sheetMode==='loans') return renderLoans();
   const e=S.edit, it=S.items.find(i=>i.id===e.id);
   sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Teil bearbeiten">
     <div class="phead"><h2>${esc(e.cat)}</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>
@@ -1253,9 +1310,9 @@ async function saveEdit(btn){
   const e=S.edit, it=S.items.find(i=>i.id===e.id);
   btn.disabled=true;
   try{
-    const patch={category:e.cat,color:e.color,color2:e.color2||null,styles:e.styles,seasons:e.seasons,material:e.material||null,pattern:e.pattern||null,note:e.note||null,bag_size:e.cat==='Tasche'?(e.bagSize||null):null,heel:e.cat==='Schuhe'?(e.heel||null):null,shaft:e.cat==='Schuhe'?(e.shaft||null):null};
+    const patch={category:e.cat,color:e.color,color2:e.color2||null,styles:e.styles,seasons:e.seasons,material:e.material||null,pattern:e.pattern||null,note:e.note||null,bag_size:e.cat==='Tasche'?(e.bagSize||null):null,heel:e.cat==='Schuhe'?(e.heel||null):null,shaft:e.cat==='Schuhe'?(e.shaft||null):null,loaned_to:e.loanedAt?(e.loanedTo||null):null,loaned_at:e.loanedAt?e.loanedAt:null};
     const same=(a,b)=>[...(a||[])].sort().join()===[...(b||[])].sort().join();
-    if(e.cat!==it.category || e.color!==it.color || (e.color2||'')!==(it.color2||'') || !same(e.styles,it.styles) || !same(e.seasons,it.seasons) || (e.material||'')!==(it.material||'') || (e.pattern||'')!==(it.pattern||'') || (e.note||'')!==(it.note||'') || (e.bagSize||'')!==(it.bag_size||'') || (e.heel||'')!==(it.heel||'') || (e.shaft||'')!==(it.shaft||'')){ patch.edited=true; patch.pending=false; }
+    if(e.cat!==it.category || e.color!==it.color || (e.color2||'')!==(it.color2||'') || !same(e.styles,it.styles) || !same(e.seasons,it.seasons) || (e.material||'')!==(it.material||'') || (e.pattern||'')!==(it.pattern||'') || (e.note||'')!==(it.note||'') || (e.bagSize||'')!==(it.bag_size||'') || (e.heel||'')!==(it.heel||'') || (e.shaft||'')!==(it.shaft||'') || (e.loanedTo||'')!==(it.loaned_to||'')){ patch.edited=true; patch.pending=false; }
     if(e.blob){
       const c=await blobToCanvas(e.blob);
       const path=`${S.user.id}/${crypto.randomUUID()}.${e.blob.type==='image/webp'?'webp':'png'}`;
@@ -1319,7 +1376,8 @@ function candidates(slot){
   const season=curSeason();
   const list=S.items.filter(i=>slot.cats.includes(i.category)
     && (!S.d.seasonOn || !(i.seasons||[]).length || i.seasons.includes(season))
-    && (!S.d.style || (i.styles||[]).includes(S.d.style)));
+    && (!S.d.style || (i.styles||[]).includes(S.d.style))
+    && (S.d.hideLoan || !i.loaned_to));
   if(S.d.locked.has(slot.key)){ const it=S.items.find(i=>i.id===S.d.sel[slot.key]); if(it && !list.includes(it)) list.unshift(it); }
   return list;
 }
@@ -1329,7 +1387,7 @@ function currentItem(slot,list){
   return it;
 }
 /* ---------------- Reisemodus ---------------- */
-function poolFor(slot,se=curSeason()){ return S.items.filter(i=>slot.cats.includes(i.category)&&(!(i.seasons||[]).length||i.seasons.includes(se))); }
+function poolFor(slot,se=curSeason()){ return S.items.filter(i=>slot.cats.includes(i.category)&&(!(i.seasons||[]).length||i.seasons.includes(se))&&(S.d.hideLoan||!i.loaned_to)); }
 function planTrip(n,se=curSeason()){
   const use={}, plan=[], seen=new Set();
   const slotOf=(k)=>SLOTS.find(x=>x.key===k);
@@ -1405,7 +1463,7 @@ async function loadWeather(){
 }
 function viewDress(){
   if(!S.wx && !S.wxBusy) loadWeather();
-  if(!S.items.length) return `<section class="empty"><h1>Noch nichts zum Anziehen</h1><p>Sobald Teile im Schrank sind, kannst du hier Kombinationen durchblättern.</p><button class="btn" data-a="nav" data-v="add">Teile hinzufügen</button></section>`;
+  if(!S.items.length) return `<section class="empty"><h1>Noch nichts zum Anziehen</h1><p>Sobald Teile im Kastl sind, kannst du hier Kombinationen durchblättern.</p><button class="btn" data-a="nav" data-v="add">Teile hinzufügen</button></section>`;
   const slots=visibleSlots(), shown=slots.filter(s=>!S.d.hidden.has(s.key)), hid=slots.filter(s=>S.d.hidden.has(s.key));
   const editO=S.d.editing && S.outfits.find(o=>o.id===S.d.editing);
   return `<div class="dress">
@@ -1611,7 +1669,7 @@ async function runSuggest(occ){
   S.d.desc={loading:true, occ, text:'Charly stöbert in deinem Schrank …'}; render();
   setBg('ai',{text:'Charly stellt dein Outfit zusammen …', p:null, charly:true});
   try{
-    const list=S.items.map((i,n)=>({n, ...brief(i)}));
+    const list=S.items.map((i,n)=>({n,i})).filter(({i})=>S.d.hideLoan||!i.loaned_to).map(({i,n})=>({n, ...brief(i)}));
     const idx=new Map(S.items.map((i,n)=>[i.id,n]));
     const worn=(S.worn||[]).slice(0,15).map(w=>w.item_ids.map(id=>idx.get(id)).filter(n=>n!=null)).filter(a=>a.length);
     const recent=[...recentWornIds(2)].map(id=>idx.get(id)).filter(n=>n!=null);
@@ -1847,6 +1905,12 @@ const A = {
   'm-display':()=>{ S.menuStep='display'; renderMenu(); },
   'm-admin':()=>{ S.menuStep='admin'; renderMenu(); },
   'm-multikasten':()=>{ openMultikasten(); },
+  'loans':()=>{ S.sheetMode='loans'; renderLoans(); },
+  'loan-return':(t)=>returnLoan(t.dataset.id),
+  'e-loan-start':()=>{ const o=S.edit; if(!(o.loanedTo||'').trim()){ toast('Bitte Namen eingeben'); return; } o.loanedAt=new Date().toISOString(); o.touched=true; rerender('e'); },
+  'e-loan-return':()=>{ const o=S.edit; o.loanedTo=''; o.loanedAt=null; o.touched=true; rerender('e'); },
+  'mk-view':(t)=>{ S.mk.viewId=t.dataset.id; S.sheetMode='mkview'; renderMkFullView(); },
+  'mk-back':()=>{ S.sheetMode='multikasten'; renderMultikasten(); },
   'm-travel':()=>{ S.sheetMode='travel'; S.trip=S.trip||{days:3,plan:null}; renderTravel(); },
   'm-menu':()=>{ syncTrip(); openMenu(); },
   't-dec':()=>{ syncTrip(); S.trip.days=Math.max(1,S.trip.days-1); S.trip.plan=null; renderTravel(); },
@@ -1857,6 +1921,7 @@ const A = {
   stoggle:()=>{ S.searchOpen=!S.searchOpen; if(!S.searchOpen) S.search=''; render(); if(S.searchOpen) setTimeout(()=>document.getElementById('schrank-search')?.focus(),50); },
   'm-kleid':()=>{ S.d.hideKleid=!S.d.hideKleid; if(S.d.hideKleid) S.d.kleid=false; saveDressPrefs(); S.menuStep='display'; renderMenu(); },
   'm-heel':()=>{ S.d.hideHeel=!S.d.hideHeel; saveDressPrefs(); S.menuStep='display'; renderMenu(); },
+  'm-loan':()=>{ S.d.hideLoan=!S.d.hideLoan; saveDressPrefs(); S.menuStep='display'; renderMenu(); render(); },
   sortToggle:()=>{ S.sortBy=(S.sortBy||'color')==='color'?'cat':'color'; render(); },
   f:(t)=>{ const s=S.f[t.dataset.g], v=t.dataset.v; s.has(v)?s.delete(v):s.add(v); render(); },
   freset:()=>{ Object.values(S.f).forEach(s=>s.clear()); render(); },
@@ -1968,6 +2033,7 @@ document.addEventListener('input',(e)=>{
   if(c==='q-note'||c==='e-note'){ const o=qById(t.dataset.i); if(o){ o.note=t.value; o.touched=true; } }
   else if(c==='schrank-search'){ S.search=t.value; render(); }
   else if(c==='mk-search'){ S.mk.search=t.value; renderMultikasten(); }
+  else if(c==='e-loanto'){ const o=qById(t.dataset.i); if(o){ o.loanedTo=t.value; o.touched=true; } }
 });
 document.addEventListener('keydown',(e)=>{ if(e.key==='Enter' && e.target.id==='sg-text'){ e.preventDefault(); runSuggest(e.target.value); return; } if(e.key==='Escape' && !sheet.hidden){ S.sheetMode==='erase' ? S.er.back() : closeSheet(); } });
 
