@@ -258,7 +258,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '8.6';
+const APP_VERSION = '8.8';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
@@ -443,7 +443,7 @@ function goOffline(){
 }
 async function loadAll(){
   const [it,fo,ou] = await Promise.all([
-    sb.from('items').select('*').order('created_at'),
+    sb.from('items').select('*').eq('user_id', S.user.id).order('created_at'),
     sb.from('folders').select('*').order('name'),
     sb.from('outfits').select('*').order('created_at'),
   ]);
@@ -817,6 +817,12 @@ function renderMenu(){
       <button class="mtoggle" data-a="m-heel"><span class="mtext">Absatzhöhe<span class="muted small">Feld bei Schuhen anzeigen</span></span><span class="mswitch ${S.d.hideHeel?'':'on'}"></span></button>
       </div>
       <div class="actions" style="margin-top:14px"><button class="btn ghost" data-a="m-back">Zurück</button></div>`;
+  }else if(S.menuStep==='admin'){
+    body=`<div class="menu">
+      <a class="mitem" href="https://supabase.com/dashboard/project/${PROJECT_REF}/auth/users" target="_blank" rel="noopener">Nutzer anlegen<span class="muted small">Öffnet die Nutzerverwaltung in Supabase</span></a>
+      <button class="mitem" data-a="m-multikasten">Multikasten<span class="muted small">Alle Kleidungsstücke aller Nutzer ansehen, nur lesen</span></button>
+      </div>
+      <div class="actions" style="margin-top:14px"><button class="btn ghost" data-a="m-back">Zurück</button></div>`;
   }else if(S.menuStep==='recog'){
     const n=S.items.length, k=S.items.filter(i=>i.edited).length, min=Math.max(1,Math.ceil(n*GEM_GAP/60000));
     body=`<p>Charly schaut sich alle ${n} Teile im Hintergrund neu an. Das dauert etwa ${min} ${min===1?'Minute':'Minuten'}, du kannst dabei weiter blättern.</p>
@@ -832,13 +838,13 @@ function renderMenu(){
         <button class="mitem" data-a="m-display">Anzeige-Einstellungen<span class="muted small">Kleid-Modus und Absatzhöhe ein- oder ausblenden</span></button>
         <button class="mitem" data-a="m-backup" ${S.items.length?'':'disabled'}>Sicherung herunterladen<span class="muted small">Alle Fotos und Daten als ZIP-Datei</span></button>
         <label class="mitem" style="cursor:pointer">Aus Sicherung wiederherstellen<span class="muted small">ZIP-Datei auswählen, doppelte Teile werden übersprungen</span><input type="file" accept=".zip,application/zip" data-c="restore" hidden></label>
-        ${isAdmin()?`<a class="mitem" href="https://supabase.com/dashboard/project/${PROJECT_REF}/auth/users" target="_blank" rel="noopener">Nutzer anlegen<span class="muted small">Öffnet die Nutzerverwaltung in Supabase</span></a>`:''}
+        ${isAdmin()?`<button class="mitem" data-a="m-admin">Admin<span class="muted small">Nutzerverwaltung und Multikasten</span></button>`:''}
         <button class="mitem" data-a="logout">Abmelden<span class="muted small">${esc(S.user?.email||'')}</span></button>
       </div>
       <p class="muted small" style="margin-top:14px">Version ${APP_VERSION}${S.fnVersion?(' · Charly v'+esc(S.fnVersion)):''}</p>`;
   }
   sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Menü">
-    <div class="phead"><h2>${S.menuStep==='recog'?'Alle neu erkennen':S.menuStep==='display'?'Anzeige-Einstellungen':'Gwandkastl von '+esc(userName())}</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>${body}</div>`;
+    <div class="phead"><h2>${S.menuStep==='recog'?'Alle neu erkennen':S.menuStep==='display'?'Anzeige-Einstellungen':S.menuStep==='admin'?'Admin':'Gwandkastl von '+esc(userName())}</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>${body}</div>`;
   sheet.hidden=false;
 }
 async function saveName(btn){
@@ -1131,6 +1137,46 @@ function openEdit(id){
   S.edit={id, cat:it.category, color:it.color, color2:it.color2||'', styles:[...(it.styles||[])], seasons:[...(it.seasons||[])], material:it.material||'', pattern:it.pattern||'', note:it.note||'', bagSize:it.bag_size||'', heel:it.heel||'', shaft:it.shaft||'', blob:null, preview:null, busy:false};
   renderSheet();
 }
+async function openMultikasten(){
+  S.sheetMode='multikasten'; S.mk={loading:true, items:null, users:{}, search:S.mk?.search||'', err:null};
+  renderMultikasten();
+  try{
+    const [ir,ur] = await Promise.all([
+      sb.from('items').select('*').order('created_at'),
+      sb.rpc('admin_user_names'),
+    ]);
+    if(ir.error) throw ir.error;
+    S.mk.items=ir.data;
+    if(!ur.error) S.mk.users=Object.fromEntries((ur.data||[]).map(u=>[u.id,u.name]));
+    const paths=ir.data.map(i=>i.image_path).filter(p=>!S.urls[p]);
+    if(paths.length){
+      const {data:ud,error:ue}=await sb.storage.from(BUCKET).createSignedUrls(paths, 60*60*8);
+      if(!ue) ud.forEach(d=>{ if(d.signedUrl && d.path) S.urls[d.path]={url:d.signedUrl}; });
+    }
+  }catch(e){ S.mk.err=e.message||String(e); }
+  S.mk.loading=false;
+  if(S.sheetMode==='multikasten') renderMultikasten();
+}
+function renderMultikasten(){
+  const st=S.mk||{};
+  const q=(st.search||'').trim().toLowerCase();
+  const items=st.items||[];
+  const list=items.filter(i=>!q || [i.category,i.color,i.color2,i.material,i.pattern].filter(Boolean).some(x=>x.toLowerCase().includes(q)));
+  const body = st.loading ? `<p class="muted">Lädt …</p>`
+    : st.err ? `<p class="muted">Konnte nicht geladen werden (${esc(st.err)}).</p>`
+    : `<div class="field"><input type="text" data-c="mk-search" value="${esc(st.search||'')}" placeholder="Suche nach Art, Farbe, Muster, Material …" aria-label="Suche"></div>
+       <p class="muted small" style="margin:-6px 0 10px">${list.length} von ${items.length} Teilen</p>
+       <div class="grid">${list.map(i=>`<div class="tile">
+         <div class="ph"><img loading="lazy" src="${S.urls[i.image_path]?.url||''}" alt="${esc(i.category)}"></div>
+         <div class="meta"><span class="dot" style="background:${COLORS[i.color]||'#ccc'}"></span>${esc(i.category)}</div>
+         <div class="muted small">${[i.color2,i.pattern,i.material].filter(Boolean).map(esc).join(' · ')}</div>
+         <div class="muted small" style="margin-top:2px">${esc(st.users[i.user_id]||'Unbekannt')}</div>
+       </div>`).join('')}</div>
+       ${list.length?'':'<p class="muted">Kein Teil passt zu dieser Suche.</p>'}`;
+  sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Multikasten">
+    <div class="phead"><h2>Multikasten</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>${body}</div>`;
+  sheet.hidden=false;
+}
 function renderViewSheet(){
   const it=S.items.find(i=>i.id===S.viewId); if(!it) return closeSheet();
   sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="${esc(it.category)}">
@@ -1162,6 +1208,7 @@ function renderSheet(){
   if(S.sheetMode==='sharelink') return renderShareSheet();
   if(S.sheetMode==='backupready') return renderBackupReady();
   if(S.sheetMode==='view') return renderViewSheet();
+  if(S.sheetMode==='multikasten') return renderMultikasten();
   const e=S.edit, it=S.items.find(i=>i.id===e.id);
   sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Teil bearbeiten">
     <div class="phead"><h2>${esc(e.cat)}</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>
@@ -1796,6 +1843,8 @@ const A = {
   'm-recog':()=>{ S.menuStep='recog'; renderMenu(); },
   'm-back':()=>{ S.menuStep=null; renderMenu(); },
   'm-display':()=>{ S.menuStep='display'; renderMenu(); },
+  'm-admin':()=>{ S.menuStep='admin'; renderMenu(); },
+  'm-multikasten':()=>{ openMultikasten(); },
   'm-travel':()=>{ S.sheetMode='travel'; S.trip=S.trip||{days:3,plan:null}; renderTravel(); },
   'm-menu':()=>{ syncTrip(); openMenu(); },
   't-dec':()=>{ syncTrip(); S.trip.days=Math.max(1,S.trip.days-1); S.trip.plan=null; renderTravel(); },
@@ -1916,6 +1965,7 @@ document.addEventListener('input',(e)=>{
   const t=e.target, c=t.dataset.c; if(!c) return;
   if(c==='q-note'||c==='e-note'){ const o=qById(t.dataset.i); if(o){ o.note=t.value; o.touched=true; } }
   else if(c==='schrank-search'){ S.search=t.value; render(); }
+  else if(c==='mk-search'){ S.mk.search=t.value; renderMultikasten(); }
 });
 document.addEventListener('keydown',(e)=>{ if(e.key==='Enter' && e.target.id==='sg-text'){ e.preventDefault(); runSuggest(e.target.value); return; } if(e.key==='Escape' && !sheet.hidden){ S.sheetMode==='erase' ? S.er.back() : closeSheet(); } });
 
