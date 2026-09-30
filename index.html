@@ -115,6 +115,7 @@ main{max-width:1100px;margin:0 auto;padding:22px 20px calc(110px + env(safe-area
 .sw{width:32px;height:32px;border-radius:50%;border:1px solid rgba(0,0,0,.18)}
 .sw.on{box-shadow:0 0 0 2px var(--bg),0 0 0 3.5px var(--ink)}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;border:1px solid rgba(0,0,0,.18);flex:none}
+.dot2{display:inline-block;width:9px;height:9px;border-radius:2px;border:1px solid rgba(0,0,0,.18);flex:none;margin-left:-3px}
 .field{margin-top:18px}
 .field h3{font-size:14px;font-weight:500;margin-bottom:8px}
 .field h3 span{font-weight:400}
@@ -258,7 +259,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '8.9';
+const APP_VERSION = '9.0';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
@@ -504,7 +505,7 @@ function viewSchrank(){
     ${S.filterOpen?filterPanel():''}
     <div class="grid">${list.map(i=>`<button class="tile ${S.sel?.has(i.id)?'sel':''}" data-a="edit" data-id="${i.id}" ${S.sel?`aria-pressed="${S.sel.has(i.id)}"`:''}>${S.sel?`<span class="check">${S.sel.has(i.id)?ICON.check:''}</span>`:''}
       <div class="ph"><img loading="lazy" src="${url(i)}" alt="${esc(i.category)}"></div>
-      <div class="meta"><span class="dot" style="background:${COLORS[i.color]||'#ccc'}"></span>${esc(i.category)}</div>${i.pending?'<div class="pend">Erkennung ausstehend</div>':''}</button>`).join('')}</div>
+      <div class="meta"><span class="dot" style="background:${COLORS[i.color]||'#ccc'}"></span>${i.color2?`<span class="dot2" style="background:${COLORS[i.color2]||'#ccc'}"></span>`:''}${esc(i.category)}</div>${i.pending?'<div class="pend">Erkennung ausstehend</div>':''}</button>`).join('')}</div>
     ${list.length?'':'<p class="muted">Kein Teil passt zu diesem Filter.</p>'}
     ${S.sel?`<div class="bulkbar"><span class="count">${S.sel.size} ausgewählt</span>
       <button class="btn ghost sm" data-a="sel-all">${S.sel.size===list.length&&list.length?'Keine':'Alle'}</button>
@@ -1169,7 +1170,7 @@ function renderMultikasten(){
        <p class="muted small" style="margin:-6px 0 10px">${list.length} von ${items.length} Teilen${st.userErr?` · Namen: Fehler (${esc(st.userErr)})`:` · ${st.userCount??0} Namen geladen`}</p>
        <div class="grid">${list.map(i=>`<div class="tile">
          <div class="ph"><img loading="lazy" src="${S.urls[i.image_path]?.url||''}" alt="${esc(i.category)}"></div>
-         <div class="meta"><span class="dot" style="background:${COLORS[i.color]||'#ccc'}"></span>${esc(i.category)}</div>
+         <div class="meta"><span class="dot" style="background:${COLORS[i.color]||'#ccc'}"></span>${i.color2?`<span class="dot2" style="background:${COLORS[i.color2]||'#ccc'}"></span>`:''}${esc(i.category)}</div>
          <div class="muted small">${[i.color2,i.pattern,i.material].filter(Boolean).map(esc).join(' · ')}</div>
          <div class="muted small" style="margin-top:2px">${esc(st.users[i.user_id]||'Unbekannt')}</div>
        </div>`).join('')}</div>
