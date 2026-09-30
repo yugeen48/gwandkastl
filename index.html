@@ -262,7 +262,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '9.8';
+const APP_VERSION = '9.10';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
@@ -289,8 +289,8 @@ const SO='Sommer', UE='Übergang', WI='Winter', ALL=[SO,UE,WI];
 const SLOTS = [
   {key:'kopf',  label:'Kopf',          cats:['Kopfbedeckung'],               h:'clamp(76px,11vh,120px)'},
   {key:'jacke', label:'Jacke/Mantel',  cats:['Jacke/Mantel'],                h:'clamp(140px,21vh,240px)'},
-  {key:'oben',  label:'Oberteil',      cats:['T-Shirt','Hemd/Bluse'],        h:'clamp(140px,21vh,240px)'},
   {key:'pulli', label:'Pullover & Sakko', cats:['Pullover','Sakko'],         h:'clamp(140px,21vh,240px)'},
+  {key:'oben',  label:'Oberteil',      cats:['T-Shirt','Hemd/Bluse'],        h:'clamp(140px,21vh,240px)'},
   {key:'unten', label:'Unterteil',     cats:['Hose','Kurze Hose','Rock'],    h:'clamp(160px,25vh,290px)'},
   {key:'kleid', label:'Kleid',         cats:['Kleid'],                       h:'clamp(260px,42vh,480px)'},
   {key:'schuhe',label:'Schuhe',        cats:['Schuhe'],                      h:'clamp(76px,11vh,120px)'},
@@ -684,6 +684,8 @@ async function processOne(q){
   const cutBlob = await remove(await canvasToBlob(work, 'image/jpeg', .92));
   setStep(q,'Charly richtet es schön her …');
   let cut = await blobToCanvas(cutBlob);
+  restoreDarkMistakes(cut, work);   // dunkle, fälschlich entfernte Stellen (z. B. Innenfutter) auf weißem Hintergrund zurückholen
+  await yieldFrame();
   if(rec && Math.abs(rec.tilt)>=1.5) cut = rotateCanvas(cut, -rec.tilt);     // Schieflage laut Charly ausgleichen
   // Beim "Nochmal einlesen" wird das automatische Aufräumen mit jedem Versuch vorsichtiger, ab dem 3. Versuch ganz aus, der Rest wird dann von Hand radiert.
   const attempt=q.retryCount||0;
@@ -991,6 +993,23 @@ async function startRecognizeAll(mode){
 /* ---------------- Bildbearbeitung ---------------- */
 function mk(w,h){ const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(w)); c.height=Math.max(1,Math.round(h)); return c; }
 const ctx = (c) => c.getContext('2d',{willReadFrequently:true});
+// Weißer Hintergrund fest angenommen: dunkle Punkte, die die Freistellung entfernt hat, können nie der Hintergrund
+// gewesen sein (z. B. dunkles Innenfutter, das mit dem Hintergrund verwechselt wird) - werden zurückgeholt.
+function restoreDarkMistakes(cutCanvas, origCanvas, threshold=130){
+  const w=cutCanvas.width, h=cutCanvas.height;
+  if(origCanvas.width!==w || origCanvas.height!==h) return;
+  const cx=ctx(cutCanvas), ox=ctx(origCanvas);
+  const cd=cx.getImageData(0,0,w,h), od=ox.getImageData(0,0,w,h);
+  const cdata=cd.data, odata=od.data;
+  for(let p=0;p<w*h;p++){
+    const ai=p*4+3;
+    if(cdata[ai]<128){
+      const r=odata[p*4], g=odata[p*4+1], b=odata[p*4+2];
+      if(0.299*r+0.587*g+0.114*b < threshold){ cdata[p*4]=r; cdata[p*4+1]=g; cdata[p*4+2]=b; cdata[ai]=255; }
+    }
+  }
+  cx.putImageData(cd,0,0);
+}
 function canvasToBlob(c,type,q){ return new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('Bild konnte nicht erzeugt werden.')),type,q)); }
 async function toDrawable(blob){
   try{ return await createImageBitmap(blob,{imageOrientation:'from-image'}); }
