@@ -241,6 +241,7 @@ textarea{font:inherit}
 
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important}.spinner{animation-duration:1.5s!important}}
 .wx{font-size:.82rem;color:var(--muted,#777);margin:-4px 0 8px}
+.wx3{font-size:.78rem;color:var(--muted,#777);margin:-4px 0 10px}
 .stageimg{background:none;border:0;padding:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;cursor:zoom-in}
 .sw.none{background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:12px;color:#999}
 .viewbig{width:100%;max-height:52vh;object-fit:contain;background:#eee;border-radius:12px}
@@ -261,7 +262,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '9.7';
+const APP_VERSION = '9.8';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
@@ -287,8 +288,9 @@ const SO='Sommer', UE='Übergang', WI='Winter', ALL=[SO,UE,WI];
 
 const SLOTS = [
   {key:'kopf',  label:'Kopf',          cats:['Kopfbedeckung'],               h:'clamp(76px,11vh,120px)'},
-  {key:'jacke', label:'Jacke & Sakko', cats:['Jacke/Mantel','Sakko'],        h:'clamp(140px,21vh,240px)'},
-  {key:'oben',  label:'Oberteil',      cats:['T-Shirt','Hemd/Bluse','Pullover'], h:'clamp(140px,21vh,240px)'},
+  {key:'jacke', label:'Jacke/Mantel',  cats:['Jacke/Mantel'],                h:'clamp(140px,21vh,240px)'},
+  {key:'oben',  label:'Oberteil',      cats:['T-Shirt','Hemd/Bluse'],        h:'clamp(140px,21vh,240px)'},
+  {key:'pulli', label:'Pullover & Sakko', cats:['Pullover','Sakko'],         h:'clamp(140px,21vh,240px)'},
   {key:'unten', label:'Unterteil',     cats:['Hose','Kurze Hose','Rock'],    h:'clamp(160px,25vh,290px)'},
   {key:'kleid', label:'Kleid',         cats:['Kleid'],                       h:'clamp(260px,42vh,480px)'},
   {key:'schuhe',label:'Schuhe',        cats:['Schuhe'],                      h:'clamp(76px,11vh,120px)'},
@@ -611,9 +613,9 @@ function qCard(q){
     const src = q.dup.item ? url(S.items.find(i=>i.id===q.dup.item)) : (S.queue.find(x=>x.id===q.dup.q)?.preview||'');
     dup = `<div class="note">${src?`<img src="${src}" alt="">`:''}<span>Sieht aus wie ein Teil, das schon ${q.dup.item?'im Kastl':'in dieser Auswahl'} ist.</span></div>`;
   }
-  return `<div class="rcard"><div><div class="ph"><img src="${q.preview}" alt="Freigestelltes Teil"></div>
+  return `<div class="rcard"><div><button class="ph" data-a="q-zoom" data-i="${q.id}" style="display:block;width:100%;padding:0;border:0"><img src="${q.preview}" alt="Freigestelltes Teil"></button>
     <label class="keep"><input type="checkbox" data-c="q-keep" data-i="${q.id}" ${q.keep?'checked':''}> Übernehmen</label>
-    <div class="cardlinks"><button class="linkbtn" data-a="q-erase" data-i="${q.id}">Radieren</button><button class="linkbtn" data-a="q-retry" data-i="${q.id}">Nochmal einlesen</button></div></div>
+    <div class="cardlinks"><button class="linkbtn" data-a="q-erase" data-i="${q.id}">Radieren</button><button class="linkbtn" data-a="q-retry" data-i="${q.id}">Nochmal einlesen</button></div>${q.retryCount?`<p class="muted small">${q.retryCount+1}. Versuch${q.retryCount===1?', Aufräumen vorsichtiger':', ohne automatisches Aufräumen'}</p>`:''}</div>
     <div>${dup}${q.pending?`<p class="note">${q.recErr?esc(q.recErr):'Charly konnte das Teil nicht erkennen'}. Er versucht es nach dem Speichern nochmal, oder du ordnest selbst ein.</p>`:''}${fieldsHTML(q,'q',q.id)}</div></div>`;
 }
 function addFiles(files){
@@ -683,7 +685,10 @@ async function processOne(q){
   setStep(q,'Charly richtet es schön her …');
   let cut = await blobToCanvas(cutBlob);
   if(rec && Math.abs(rec.tilt)>=1.5) cut = rotateCanvas(cut, -rec.tilt);     // Schieflage laut Charly ausgleichen
-  const out = await prepareCutout(cut, {clean:true, straighten:true, level:true});   // Bügel-Ausschnitt entfernt den Haken, alte Geraderichtung bleibt zusätzlich aktiv
+  // Beim "Nochmal einlesen" wird das automatische Aufräumen mit jedem Versuch vorsichtiger, ab dem 3. Versuch ganz aus, der Rest wird dann von Hand radiert.
+  const attempt=q.retryCount||0;
+  const cleanOpt = attempt<=0 ? true : attempt===1 ? .03 : false;
+  const out = await prepareCutout(cut, {clean:cleanOpt, straighten:true, level:true});   // Bügel-Ausschnitt entfernt den Haken, alte Geraderichtung bleibt zusätzlich aktiv
   q.blob = await exportImage(out);
   q.preview = URL.createObjectURL(q.blob);
   q.hash = dhash(out);
@@ -855,7 +860,7 @@ function renderMenu(){
       <div class="menu">
         <button class="mitem" data-a="m-recog" ${S.items.length?'':'disabled'}>Alle neu erkennen<span class="muted small">Charly sortiert deine Teile neu ein</span></button>
         <button class="mitem" data-a="m-travel" ${S.items.length?'':'disabled'}>Reisemodus<span class="muted small">Outfits und Packliste für mehrere Tage</span></button>
-        <button class="mitem" data-a="m-display">Anzeige-Einstellungen<span class="muted small">Kleid-Modus und Absatzhöhe ein- oder ausblenden</span></button>
+        <button class="mitem" data-a="m-display">Anzeige-Einstellungen<span class="muted small">Kleid-Modus, Absatzhöhe und Verleih-Tracker ein- oder ausblenden</span></button>
         <button class="mitem" data-a="m-backup" ${S.items.length?'':'disabled'}>Sicherung herunterladen<span class="muted small">Alle Fotos und Daten als ZIP-Datei</span></button>
         <label class="mitem" style="cursor:pointer">Aus Sicherung wiederherstellen<span class="muted small">ZIP-Datei auswählen, doppelte Teile werden übersprungen</span><input type="file" accept=".zip,application/zip" data-c="restore" hidden></label>
         ${isAdmin()?`<button class="mitem" data-a="m-admin">Admin<span class="muted small">Nutzerverwaltung und Multikastl</span></button>`:''}
@@ -1046,7 +1051,7 @@ function fitCanvas(c){
 }
 // Nur die Hauptfläche behalten: Teile, die nicht am Kleidungsstück hängen (Fuß, Türschnalle …), werden entfernt.
 // Getrennte Flächen ab 30 % der größten bleiben (z. B. der zweite Schuh eines Paars).
-function keepMainParts(c){
+function keepMainParts(c,threshold=.12){
   const w=c.width, h=c.height, N=w*h, x=ctx(c), im=x.getImageData(0,0,w,h), d=im.data;
   const raw=new Uint8Array(N);
   for(let p=0;p<N;p++) raw[p] = d[p*4+3]>128 ? 1 : 0;
@@ -1067,7 +1072,7 @@ function keepMainParts(c){
   }
   if(n<=1) return;
   let max=0; for(let i=1;i<=n;i++) if(sizes[i]>max) max=sizes[i];
-  const keep=new Uint8Array(n+1); for(let i=1;i<=n;i++) keep[i]=sizes[i]>=max*.12?1:0;   // deutlich vorsichtiger als vorher (war .3), damit echte, nur dünn verbundene Teile nicht verschwinden
+  const keep=new Uint8Array(n+1); for(let i=1;i<=n;i++) keep[i]=sizes[i]>=max*threshold?1:0;   // deutlich vorsichtiger als vorher (war .3), damit echte, nur dünn verbundene Teile nicht verschwinden; wird bei "Nochmal einlesen" noch weiter herabgesetzt
   for(let p=0;p<N;p++) if(d[p*4+3]>128 && (!lab[p] || !keep[lab[p]])) d[p*4+3]=0;
   x.putImageData(im,0,0);
 }
@@ -1083,7 +1088,7 @@ const yieldFrame = () => new Promise(r=>setTimeout(r,0));
 async function prepareCutout(src,opt={}){
   // In kleine Schritte mit Verschnaufpausen zerlegt, damit die Seite während der rechenintensiven
   // Bildbearbeitung nicht am Stück einfriert und weiter bedienbar bleibt.
-  if(opt.clean){ keepMainParts(src); await yieldFrame(); }
+  if(opt.clean){ keepMainParts(src, typeof opt.clean==='number'?opt.clean:.12); await yieldFrame(); }
   let b=alphaBBox(src);
   if(!b || b.w<20 || b.h<20) throw new Error('Kein Kleidungsstück erkannt. Bitte auf ruhigerem Hintergrund fotografieren.');
   let c=crop(src,b,4);
@@ -1230,6 +1235,14 @@ function renderMultikasten(){
     <div class="phead"><h2>Multikastl</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>${body}</div>`;
   sheet.hidden=false;
 }
+function renderQZoom(){
+  const q=S.queue.find(x=>x.id===S.qzoomId); if(!q){ S.sheetMode=null; return closeSheet(); }
+  sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Foto">
+    <div class="phead"><h2>Foto</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>
+    <img class="viewbig" src="${q.preview}" alt="Freigestelltes Teil">
+  </div>`;
+  sheet.hidden=false;
+}
 function renderMkFullView(){
   const it=(S.mk?.items||[]).find(i=>i.id===S.mk.viewId); if(!it) return renderMultikasten();
   sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="${esc(it.category)}">
@@ -1283,6 +1296,7 @@ function renderSheet(){
   if(S.sheetMode==='view') return renderViewSheet();
   if(S.sheetMode==='multikasten') return renderMultikasten();
   if(S.sheetMode==='mkview') return renderMkFullView();
+  if(S.sheetMode==='qzoom') return renderQZoom();
   if(S.sheetMode==='loans') return renderLoans();
   const e=S.edit, it=S.items.find(i=>i.id===e.id);
   sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Teil bearbeiten">
@@ -1431,13 +1445,20 @@ function planTrip(n,se=curSeason()){
 async function tripWeather(dest,n){
   const g=await (await fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&language=de&name='+encodeURIComponent(dest))).json();
   const p=g.results?.[0]; if(!p) return null;
-  const d=Math.min(n,16);
-  const j=await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.latitude}&longitude=${p.longitude}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=${d}`)).json();
-  const mx=j.daily.temperature_2m_max, mn=j.daily.temperature_2m_min, pr=j.daily.precipitation_probability_max;
-  const avg=(a)=>a.reduce((x,y)=>x+y,0)/a.length;
-  const hi=avg(mx), lo=avg(mn), rain=Math.max(...pr.map(x=>x||0));
+  // Zeigt immer die nächsten 10 Tage an, unabhängig von der eingestellten Reisedauer.
+  const j=await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.latitude}&longitude=${p.longitude}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code&timezone=auto&forecast_days=10`)).json();
+  const mx=j.daily.temperature_2m_max, mn=j.daily.temperature_2m_min, pr=j.daily.precipitation_probability_max, wc=j.daily.weather_code, tm=j.daily.time;
+  const packN=Math.min(n,mx.length);
+  const avg=(a)=>a.slice(0,packN).reduce((x,y)=>x+y,0)/packN;
+  const hi=avg(mx), lo=avg(mn), rain=Math.max(...pr.slice(0,packN).map(x=>x||0));
   const season=hi>=22?SO:hi<=10?WI:UE;
-  return {name:p.name, season, text:`${p.name}: ${Math.round(lo)}–${Math.round(hi)} °C, ${rain>=60?'Regen wahrscheinlich':rain>=30?'vereinzelt Regen':'meist trocken'}`, short:d<n};
+  const days=tm.map((iso,i)=>{
+    const code=wc?.[i], prb=pr?.[i]||0;
+    const w=SNOW.has(code)?'Schnee':(RAIN.has(code)||prb>=60)?'Regen':'trocken';
+    const label=i===0?'Heute':i===1?'Morgen':new Date(iso).toLocaleDateString('de-AT',{weekday:'short'});
+    return {label, max:Math.round(mx[i]), min:Math.round(mn[i]), what:w};
+  });
+  return {name:p.name, season, text:`${p.name}: ${Math.round(lo)}–${Math.round(hi)} °C, ${rain>=60?'Regen wahrscheinlich':rain>=30?'vereinzelt Regen':'meist trocken'}`, days, short:n>mx.length};
 }
 const syncTrip=()=>{ const el=document.getElementById('t-dest'); if(el) S.trip.dest=el.value; };
 async function goTrip(btn){
@@ -1445,7 +1466,7 @@ async function goTrip(btn){
   btn.disabled=true; t.wx=null; t.note='';
   let season=curSeason();
   if(dest){
-    try{ const w=await tripWeather(dest,t.days); if(w){ t.wx=w; season=w.season; if(w.short) t.note='Wetter gilt für die ersten 16 Tage.'; } else t.note='Ziel nicht gefunden, ich nehme die Jahreszeit von hier.'; }
+    try{ const w=await tripWeather(dest,t.days); if(w){ t.wx=w; season=w.season; if(w.short) t.note='Wetter gilt nur für die ersten 10 Tage, danach nehme ich die Jahreszeit an.'; } else t.note='Ziel nicht gefunden, ich nehme die Jahreszeit von hier.'; }
     catch(e){ t.note='Wetter gerade nicht abrufbar, ich nehme die Jahreszeit von hier.'; }
   }
   t.season=season; t.plan=planTrip(t.days,season); renderTravel();
@@ -1459,7 +1480,9 @@ function renderTravel(){
     <div class="field"><h3>Wohin geht's?</h3><input id="t-dest" type="text" placeholder="z. B. Hawaii, Kopenhagen" value="${esc(t.dest||'')}" aria-label="Reiseziel"></div>
     <div class="field"><h3>Wie viele Tage?</h3><div class="inline" style="align-items:center;gap:14px">
       <button class="btn ghost sm" data-a="t-dec" aria-label="Einen Tag weniger" ${n<=1?'disabled':''}>−</button><strong style="font-size:1.4rem;min-width:28px;text-align:center">${n}</strong><button class="btn ghost sm" data-a="t-inc" aria-label="Einen Tag mehr" ${n>=14?'disabled':''}>+</button></div></div>
-    ${t.wx?`<p class="wx" style="margin:0 0 6px">${esc(t.wx.text)} · ich packe für ${esc(t.season)}</p>`:''}${t.note?`<p class="wx" style="margin:0 0 6px">${esc(t.note)}</p>`:''}
+    ${t.wx?`<p class="wx" style="margin:0 0 6px">${esc(t.wx.text)} · ich packe für ${esc(t.season)}</p>`:''}
+    ${t.wx?.days?.length?`<div class="wx3" style="margin:0 0 10px">${t.wx.days.map(d=>`${esc(d.label)} ${d.max}°/${d.min}° ${esc(d.what)}`).join(' · ')}</div>`:''}
+    ${t.note?`<p class="wx" style="margin:0 0 6px">${esc(t.note)}</p>`:''}
     ${plan}
     <div class="actions"><button class="btn" data-a="t-go">${t.plan?'Neu würfeln':'Packliste erstellen'}</button><button class="btn ghost" data-a="m-menu">Zurück</button></div>
   </div>`;
@@ -1470,10 +1493,16 @@ async function loadWeather(){
   if(S.wxBusy || (S.wx && Date.now()-S.wx.at<30*60000) || !navigator.onLine) return;
   S.wxBusy=true;
   try{
-    const r=await fetch('https://api.open-meteo.com/v1/forecast?latitude=48.21&longitude=16.37&current=temperature_2m,precipitation,weather_code&daily=precipitation_probability_max&timezone=Europe%2FVienna&forecast_days=1');
-    const j=await r.json(), c=j.current, p=j.daily?.precipitation_probability_max?.[0]||0;
+    const r=await fetch('https://api.open-meteo.com/v1/forecast?latitude=48.21&longitude=16.37&current=temperature_2m,precipitation,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code&timezone=Europe%2FVienna&forecast_days=3');
+    const j=await r.json(), c=j.current, dly=j.daily||{}, p=dly.precipitation_probability_max?.[0]||0;
     const what=(SNOW.has(c.weather_code)?'Schnee':(c.precipitation>0||RAIN.has(c.weather_code))?'Regen':p>=60?'Regen wahrscheinlich':'trocken');
-    S.wx={at:Date.now(), text:`${Math.round(c.temperature_2m)} °C, ${what}`};
+    const days=(dly.time||[]).slice(0,3).map((iso,i)=>{
+      const code=dly.weather_code?.[i], pr=dly.precipitation_probability_max?.[i]||0;
+      const w=SNOW.has(code)?'Schnee':(RAIN.has(code)||pr>=60)?'Regen':'trocken';
+      const label=i===0?'Heute':i===1?'Morgen':new Date(iso).toLocaleDateString('de-AT',{weekday:'short'});
+      return {label, max:Math.round(dly.temperature_2m_max?.[i]), min:Math.round(dly.temperature_2m_min?.[i]), what:w};
+    });
+    S.wx={at:Date.now(), text:`${Math.round(c.temperature_2m)} °C, ${what}`, days};
   }catch(e){ S.wx=S.wx||null; }
   S.wxBusy=false; if(S.view==='dress' && S.wx && !S.sheetMode) render();
 }
@@ -1485,6 +1514,7 @@ function viewDress(){
   return `<div class="dress">
     ${editO?`<div class="editing"><span>Du bearbeitest „${esc(editO.name)}“</span><button class="linkbtn" data-a="d-endedit">Beenden</button></div>`:''}
     ${S.wx?`<div class="wx">Wien: ${esc(S.wx.text)}</div>`:''}
+    ${S.wx?.days?.length?`<div class="wx3">${S.wx.days.map(d=>`${esc(d.label)} ${d.max}°/${d.min}° ${esc(d.what)}`).join(' · ')}</div>`:''}
     <div class="dbar">${chip('Nur '+curSeason(),S.d.seasonOn,'data-a="d-season"')}${S.d.hideKleid?'':chip('Kleid-Modus',S.d.kleid,'data-a="d-kleid"')}<button class="icbtn" data-a="d-share" aria-label="Diese Kombination teilen" title="Teilen">${ICON.share}</button></div>
     <div class="chips scroll">${chip('Alle Stile',!S.d.style,'data-a="d-style" data-v=""')}${STYLES.map(s=>chip(s,S.d.style===s,`data-a="d-style" data-v="${s}"`)).join('')}</div>
     ${shown.map(rowHTML).join('')}
@@ -1947,8 +1977,10 @@ const A = {
   'q-clear':()=>{ S.queue=S.queue.filter(q=>q.status==='wait'||q.status==='work'); render(); },
   'q-remove':(t)=>{ S.queue=S.queue.filter(q=>q.id!==t.dataset.i); render(); },
   'q-cancel':()=>cancelQueue(),
+  'q-zoom':(t)=>{ S.qzoomId=t.dataset.i; S.sheetMode='qzoom'; renderQZoom(); },
   'q-retry':(t)=>{
     const q=qById(t.dataset.i); if(!q) return;
+    q.retryCount=(q.retryCount||0)+1;
     q.status='wait'; q.step=''; q.err=null; q.recErr=null; q.pending=false; q.touched=false; q.preset=null;
     q.blob=null; if(q.preview) URL.revokeObjectURL(q.preview); q.preview=null; q.hash=null;
     render(); processQueue();
