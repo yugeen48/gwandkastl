@@ -259,14 +259,14 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '9.2';
+const APP_VERSION = '9.6';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
 const HEEL_HEIGHTS = ['Flach','Mittel','Hoch','Plateau'];
 const SHAFT_HEIGHTS = ['Niedrig','Stiefel'];
 const MATERIALS = ['Baumwolle','Leinen','Wolle','Cord','Denim','Leder','Seide','Synthetik','Gemischt'];
-const PATTERNS = ['Uni','Streifen','Karo','Punkte','Blumen','Print/Motiv','Glitzer'];
+const PATTERNS = ['Kein Muster','Streifen','Karo','Punkte','Blumen','Print/Motiv','Glitzer'];
 const STYLES = ['Freizeit','Locker','Festlich','Sport','Business','Show'];
 // Regenbogen-Reihenfolge für den Schrank, Schwarz/Grau/Weiß am Ende
 const COLOR_ORDER = ['Rot','Bordeaux','Rosa','Orange','Gelb','Oliv','Grün','Türkis','Blau','Marineblau','Violett','Braun','Beige','Weiß','Grau','Schwarz'];
@@ -619,7 +619,8 @@ function addFiles(files){
     const twin = S.queue.find(q=>q.sig===sig);
     S.queue.push({id:crypto.randomUUID(), file:f, sig, status:'wait', step:'', keep:!twin, cat:'T-Shirt', color:'', color2:'', styles:[], seasons:[], material:'', pattern:'', note:'', bagSize:'', heel:'', shaft:'', dup:twin?{q:twin.id}:null});
   }
-  render(); processQueue();
+  render();
+  setTimeout(processQueue, 0);   // Browser erst zeichnen lassen, bevor die Bildverarbeitung des ersten Fotos den Hauptthread blockiert
 }
 let processing=false;
 async function processQueue(){
@@ -643,6 +644,7 @@ function setStep(q,msg){ q.step=msg; const el=document.querySelector(`[data-card
 
 async function processOne(q){
   const src = await fileToCanvas(q.file, 1600);
+  await yieldFrame();
   let rec=q.preset||null;
   if(!rec){
     setStep(q,'Charly schaut sich das Foto an …');
@@ -661,9 +663,9 @@ async function processOne(q){
     }catch(e){ console.warn('Erkennung nicht verfügbar', e); q.recErr=e.message; }
   }
   let box=rec?.box, hung=false;
-  if(box && rec.hangerBottom>0){    // Kleiderbügel/Haken oben abschneiden
-    const [y0,,y1]=box, hb=rec.hangerBottom;
-    if(hb>y0 && hb<y0+(y1-y0)*.4){ box=[hb,box[1],box[2],box[3]]; hung=true; }
+  if(box && rec.hangerBottom>0){    // Kleiderbügel/Haken oben abschneiden – mit Sicherheitsabstand, damit Kragen/Schultern nicht mit abgeschnitten werden
+    const [y0,,y1]=box, hb=rec.hangerBottom, margin=(y1-y0)*.05;
+    if(hb>y0 && hb<y0+(y1-y0)*.3){ box=[Math.max(y0,hb-margin),box[1],box[2],box[3]]; hung=true; }
   }
   const work = box ? cropToBox(src, box, hung) : src;
   setStep(q,'Charly schneidet das Teil aus …');
@@ -672,7 +674,7 @@ async function processOne(q){
   setStep(q,'Charly richtet es schön her …');
   let cut = await blobToCanvas(cutBlob);
   if(rec && Math.abs(rec.tilt)>=1.5) cut = rotateCanvas(cut, -rec.tilt);     // Schieflage laut Charly ausgleichen
-  const out = prepareCutout(cut, {clean:true, straighten:true, level:true});   // Bügel-Ausschnitt entfernt den Haken, alte Geraderichtung bleibt zusätzlich aktiv
+  const out = await prepareCutout(cut, {clean:true, straighten:true, level:true});   // Bügel-Ausschnitt entfernt den Haken, alte Geraderichtung bleibt zusätzlich aktiv
   q.blob = await exportImage(out);
   q.preview = URL.createObjectURL(q.blob);
   q.hash = dhash(out);
@@ -1037,26 +1039,27 @@ function fitCanvas(c){
 // Getrennte Flächen ab 30 % der größten bleiben (z. B. der zweite Schuh eines Paars).
 function keepMainParts(c){
   const w=c.width, h=c.height, N=w*h, x=ctx(c), im=x.getImageData(0,0,w,h), d=im.data;
+  const raw=new Uint8Array(N);
+  for(let p=0;p<N;p++) raw[p] = d[p*4+3]>128 ? 1 : 0;
+  const bridged = dilate(raw,w,h,4);   // dünne Lücken (Nähte, Reißverschluss, Schattenlinien) vor der Analyse überbrücken, damit ein Teil nicht fälschlich in Stücke zerfällt
   const lab=new Int32Array(N), stack=new Int32Array(N), sizes=[0];
   let n=0;
   for(let p=0;p<N;p++){
-    if(lab[p] || d[p*4+3]<=128) continue;
+    if(lab[p] || !bridged[p]) continue;
     n++; let sp=0, cnt=0; stack[sp++]=p; lab[p]=n;
     while(sp){
       const q=stack[--sp]; cnt++; const qx=q%w;
-      if(qx>0     && !lab[q-1] && d[(q-1)*4+3]>128){ lab[q-1]=n; stack[sp++]=q-1; }
-      if(qx<w-1   && !lab[q+1] && d[(q+1)*4+3]>128){ lab[q+1]=n; stack[sp++]=q+1; }
-      if(q>=w     && !lab[q-w] && d[(q-w)*4+3]>128){ lab[q-w]=n; stack[sp++]=q-w; }
-      if(q<N-w    && !lab[q+w] && d[(q+w)*4+3]>128){ lab[q+w]=n; stack[sp++]=q+w; }
+      if(qx>0     && !lab[q-1] && bridged[q-1]){ lab[q-1]=n; stack[sp++]=q-1; }
+      if(qx<w-1   && !lab[q+1] && bridged[q+1]){ lab[q+1]=n; stack[sp++]=q+1; }
+      if(q>=w     && !lab[q-w] && bridged[q-w]){ lab[q-w]=n; stack[sp++]=q-w; }
+      if(q<N-w    && !lab[q+w] && bridged[q+w]){ lab[q+w]=n; stack[sp++]=q+w; }
     }
     sizes.push(cnt);
   }
   if(n<=1) return;
   let max=0; for(let i=1;i<=n;i++) if(sizes[i]>max) max=sizes[i];
-  const keep=new Uint8Array(n+1); for(let i=1;i<=n;i++) keep[i]=sizes[i]>=max*.3?1:0;
-  const km=new Uint8Array(N); for(let p=0;p<N;p++) if(lab[p] && keep[lab[p]]) km[p]=1;
-  const dil=dilate(km,w,h,3);
-  for(let p=0;p<N;p++) if(!dil[p]) d[p*4+3]=0;
+  const keep=new Uint8Array(n+1); for(let i=1;i<=n;i++) keep[i]=sizes[i]>=max*.12?1:0;   // deutlich vorsichtiger als vorher (war .3), damit echte, nur dünn verbundene Teile nicht verschwinden
+  for(let p=0;p<N;p++) if(d[p*4+3]>128 && (!lab[p] || !keep[lab[p]])) d[p*4+3]=0;
   x.putImageData(im,0,0);
 }
 function dilate(m,w,h,r){
@@ -1067,13 +1070,17 @@ function dilate(m,w,h,r){
     for(let y=-r;y<h;y++){ const a=y+r, b=y-r-1; if(a<h && t[a*w+x]) run++; if(b>=0 && t[b*w+x]) run--; if(y>=0) o[y*w+x]=run>0?1:0; } }
   return o;
 }
-function prepareCutout(src,opt={}){
-  if(opt.clean) keepMainParts(src);
+const yieldFrame = () => new Promise(r=>setTimeout(r,0));
+async function prepareCutout(src,opt={}){
+  // In kleine Schritte mit Verschnaufpausen zerlegt, damit die Seite während der rechenintensiven
+  // Bildbearbeitung nicht am Stück einfriert und weiter bedienbar bleibt.
+  if(opt.clean){ keepMainParts(src); await yieldFrame(); }
   let b=alphaBBox(src);
   if(!b || b.w<20 || b.h<20) throw new Error('Kein Kleidungsstück erkannt. Bitte auf ruhigerem Hintergrund fotografieren.');
   let c=crop(src,b,4);
-  if(opt.straighten){ const a=residualAngle(c); if(a){ c=rotateCanvas(c,-a); b=alphaBBox(c); if(b) c=crop(c,b,0); } }
-  if(opt.level) levelCanvas(c);
+  await yieldFrame();
+  if(opt.straighten){ const a=residualAngle(c); if(a){ c=rotateCanvas(c,-a); b=alphaBBox(c); if(b) c=crop(c,b,0); } await yieldFrame(); }
+  if(opt.level){ levelCanvas(c); await yieldFrame(); }
   return fitCanvas(c);
 }
 async function exportImage(c){
@@ -1925,7 +1932,7 @@ const A = {
   sortToggle:()=>{ S.sortBy=(S.sortBy||'color')==='color'?'cat':'color'; render(); },
   f:(t)=>{ const s=S.f[t.dataset.g], v=t.dataset.v; s.has(v)?s.delete(v):s.add(v); render(); },
   freset:()=>{ Object.values(S.f).forEach(s=>s.clear()); render(); },
-  edit:(t)=>{ if(S.sel){ const id=t.dataset.id; S.sel.has(id)?S.sel.delete(id):S.sel.add(id); render(); return; } openEdit(t.dataset.id); },
+  edit:(t)=>{ if(S.sel){ const id=t.dataset.id; S.sel.has(id)?S.sel.delete(id):S.sel.add(id); render(); return; } S.viewId=t.dataset.id; S.sheetMode='view'; renderViewSheet(); },
   close:()=>closeSheet(),
   'q-save':(t)=>saveQueue(t),
   'q-clear':()=>{ S.queue=S.queue.filter(q=>q.status==='wait'||q.status==='work'); render(); },
