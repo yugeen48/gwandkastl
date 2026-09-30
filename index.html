@@ -50,6 +50,8 @@ h2{font-weight:400;font-size:20px}
 .bgbar{position:absolute;left:0;right:0;bottom:-1px;transform:translateY(100%);background:var(--bg);border-bottom:1px solid var(--line);padding:6px 20px 8px;font-size:13px}
 .bgbar[hidden]{display:none}
 .bgline{display:flex;align-items:center;gap:8px}
+.bgcancel{margin-left:auto;flex:none;width:22px;height:22px;border-radius:50%;background:#D33;color:#fff;display:grid;place-items:center}
+.bgcancel svg{width:13px;height:13px}
 .bgbar .charly{width:22px;height:30px}
 .bgbar:not(.withcharly) .charly{display:none}
 .charly{width:30px;height:40px;flex:none;overflow:visible}
@@ -259,7 +261,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '9.6';
+const APP_VERSION = '9.7';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','Hemd/Bluse','Pullover','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
@@ -267,7 +269,7 @@ const HEEL_HEIGHTS = ['Flach','Mittel','Hoch','Plateau'];
 const SHAFT_HEIGHTS = ['Niedrig','Stiefel'];
 const MATERIALS = ['Baumwolle','Leinen','Wolle','Cord','Denim','Leder','Seide','Synthetik','Gemischt'];
 const PATTERNS = ['Kein Muster','Streifen','Karo','Punkte','Blumen','Print/Motiv','Glitzer'];
-const STYLES = ['Freizeit','Locker','Festlich','Sport','Business','Show'];
+const STYLES = ['Freizeit','Festlich','Sport','Business','Show'];
 // Regenbogen-Reihenfolge für den Schrank, Schwarz/Grau/Weiß am Ende
 const COLOR_ORDER = ['Rot','Bordeaux','Rosa','Orange','Gelb','Oliv','Grün','Türkis','Blau','Marineblau','Violett','Braun','Beige','Weiß','Grau','Schwarz'];
 const SEASONS = ['Sommer','Übergang','Winter'];
@@ -602,6 +604,7 @@ function qCard(q){
   if(q.status==='wait' || q.status==='work') return `<div class="rcard" data-card="${q.id}"><div class="ph">${q.status==='work'?CHARLY:''}</div>
     <div><p class="step">${q.status==='wait'?'Wartet …':esc(q.step)}</p><p class="muted small">${esc(q.file.name)}</p></div></div>`;
   if(q.status==='err') return `<div class="rcard"><div class="ph"></div><div><p>${esc(q.err)}</p><p class="muted small">${esc(q.file.name)}</p>
+    <button class="linkbtn" data-a="q-retry" data-i="${q.id}" style="margin-top:8px">Nochmal versuchen</button>
     <button class="linkbtn" data-a="q-remove" data-i="${q.id}" style="margin-top:8px">Entfernen</button></div></div>`;
   let dup='';
   if(q.dup){
@@ -610,7 +613,7 @@ function qCard(q){
   }
   return `<div class="rcard"><div><div class="ph"><img src="${q.preview}" alt="Freigestelltes Teil"></div>
     <label class="keep"><input type="checkbox" data-c="q-keep" data-i="${q.id}" ${q.keep?'checked':''}> Übernehmen</label>
-    <div class="cardlinks"><button class="linkbtn" data-a="q-erase" data-i="${q.id}">Radieren</button></div></div>
+    <div class="cardlinks"><button class="linkbtn" data-a="q-erase" data-i="${q.id}">Radieren</button><button class="linkbtn" data-a="q-retry" data-i="${q.id}">Nochmal einlesen</button></div></div>
     <div>${dup}${q.pending?`<p class="note">${q.recErr?esc(q.recErr):'Charly konnte das Teil nicht erkennen'}. Er versucht es nach dem Speichern nochmal, oder du ordnest selbst ein.</p>`:''}${fieldsHTML(q,'q',q.id)}</div></div>`;
 }
 function addFiles(files){
@@ -622,11 +625,11 @@ function addFiles(files){
   render();
   setTimeout(processQueue, 0);   // Browser erst zeichnen lassen, bevor die Bildverarbeitung des ersten Fotos den Hauptthread blockiert
 }
-let processing=false;
+let processing=false, queueCancelled=false;
 async function processQueue(){
   if(processing) return; processing=true;
   let q;
-  while((q = S.queue.find(x=>x.status==='wait'))){
+  while(!queueCancelled && (q = S.queue.find(x=>x.status==='wait'))){
     q.status='work'; q.step='Wird vorbereitet …';
     queueProgress();
     if(S.view==='add') render();
@@ -634,7 +637,13 @@ async function processQueue(){
     catch(e){ console.error(e); q.status='err'; q.err = e.message || 'Das Foto konnte nicht verarbeitet werden.'; }
     if(S.view==='add') render();
   }
-  processing=false; status(''); setBg('queue',null); runPending();
+  processing=false; queueCancelled=false; status(''); setBg('queue',null); runPending();
+}
+function cancelQueue(){
+  queueCancelled=true;
+  S.queue=S.queue.filter(q=>q.status!=='wait');   // noch nicht begonnene Fotos verwerfen; das gerade laufende wird noch fertig
+  toast('Verarbeitung wird nach dem aktuellen Foto gestoppt');
+  render();
 }
 function queueProgress(){
   const list=S.queue.filter(x=>x.status!=='saved'), done=list.filter(x=>x.status==='done'||x.status==='err').length;
@@ -804,7 +813,7 @@ function setBg(key,val){ if(val) S.bg[key]=val; else delete S.bg[key]; updateBgB
 function bgActive(){ return S.bg.backup || S.bg.queue || S.bg.recog || S.bg.ai || S.bg.offline || null; }
 function bgBarHTML(){
   const b=bgActive();
-  return `<div class="bgbar ${b?.err?'err':''} ${b?.charly?'withcharly':''}" id="bgbar" ${b?'':'hidden'} role="status"><div class="bgline">${CHARLY}<span id="bgtext">${esc(b?.text||'')}</span></div><div class="track"><i class="fill ${b&&b.p==null?'indet':''}" id="bgfill" style="width:${b?Math.max(4,Math.round((b.p||0)*100)):0}%"></i></div></div>`;
+  return `<div class="bgbar ${b?.err?'err':''} ${b?.charly?'withcharly':''}" id="bgbar" ${b?'':'hidden'} role="status"><div class="bgline">${CHARLY}<span id="bgtext">${esc(b?.text||'')}</span>${b===S.bg.queue?`<button class="bgcancel" data-a="q-cancel" aria-label="Verarbeitung abbrechen">${ICON.x}</button>`:''}</div><div class="track"><i class="fill ${b&&b.p==null?'indet':''}" id="bgfill" style="width:${b?Math.max(4,Math.round((b.p||0)*100)):0}%"></i></div></div>`;
 }
 function updateBgBar(){
   const el=document.getElementById('bgbar'); if(!el) return;
@@ -1538,7 +1547,7 @@ function levels(i){
   }
   if(FORMAL(i)) L.add(4);
   if(st.includes('Sport')) L.add(1);
-  if(st.includes('Freizeit')||st.includes('Locker')) L.add(2);
+  if(st.includes('Freizeit')) L.add(2);
   if(!L.size) return null;                                  // ohne Stil: keine Prüfung
   if(c==='Sakko'){ L.add(3); [...L].forEach(x=>{ if(x<3) L.delete(x); }); }   // Sakko nie unter 3
   if(c==='Kurze Hose'){ [...L].forEach(x=>{ if(x>2) L.delete(x); }); L.add(2); } // kurze Hose nie über 2
@@ -1937,6 +1946,13 @@ const A = {
   'q-save':(t)=>saveQueue(t),
   'q-clear':()=>{ S.queue=S.queue.filter(q=>q.status==='wait'||q.status==='work'); render(); },
   'q-remove':(t)=>{ S.queue=S.queue.filter(q=>q.id!==t.dataset.i); render(); },
+  'q-cancel':()=>cancelQueue(),
+  'q-retry':(t)=>{
+    const q=qById(t.dataset.i); if(!q) return;
+    q.status='wait'; q.step=''; q.err=null; q.recErr=null; q.pending=false; q.touched=false; q.preset=null;
+    q.blob=null; if(q.preview) URL.revokeObjectURL(q.preview); q.preview=null; q.hash=null;
+    render(); processQueue();
+  },
   'e-rot':(t)=>{ const deg=+t.dataset.v; editImage(c=>{ const r=rotateCanvas(c,deg); const b=alphaBBox(r); return fitCanvas(b?crop(r,b,0):r); }); },
   'e-bright':(t)=>{ const g=+t.dataset.v; editImage(c=>{ gainCanvas(c,g); return c; }); },
   'e-save':(t)=>saveEdit(t),
