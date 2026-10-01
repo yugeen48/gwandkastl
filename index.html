@@ -165,8 +165,9 @@ textarea{font:inherit}
 .stage{position:relative;background:var(--stage);height:var(--h);display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .stage.soda{background:linear-gradient(135deg,#ff0059,#ff8a00,#ffe600,#28e07a,#00c3ff,#8b5cf6,#ff0059);background-size:400% 400%;animation:sodarainbow 5s ease infinite}
 @keyframes sodarainbow{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-.sodacan{max-height:72%;max-width:65%;object-fit:contain;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35))}
-.sodalabel{position:absolute;top:8px;left:0;right:0;text-align:center;color:#fff;font-weight:700;font-size:.85rem;text-shadow:0 1px 4px rgba(0,0,0,.5);letter-spacing:.02em}
+.sodawrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:100%;width:100%}
+.sodacan{max-height:62%;max-width:65%;object-fit:contain;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35))}
+.sodalabel{text-align:center;color:#fff;font-weight:700;font-size:.85rem;text-shadow:0 1px 4px rgba(0,0,0,.5);letter-spacing:.02em}
 .stage img{height:100%;width:100%;object-fit:contain;padding:6px;-webkit-user-drag:none}
 .stage img.in-r{animation:inR .22s ease-out}
 .stage img.in-l{animation:inL .22s ease-out}
@@ -268,7 +269,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '9.19';
+const APP_VERSION = '9.20';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','T-Shirt Cropped','Longsleeve','Hemd/Bluse','Pullover','Weste','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
@@ -1619,7 +1620,7 @@ function rowHTML(s){
   return `<div class="row" style="--h:${s.h}">
     <button class="arrow" data-a="d-step" data-s="${s.key}" data-v="-1" aria-label="${s.label}: vorheriges Teil" ${canStep?'':'disabled'}>${ICON.chevL}</button>
     <div class="stage ${showSoda?'soda':''}" data-swipe="${s.key}">
-      ${showSoda ? `<span class="sodalabel">Spaßgetränk des Tages</span><img class="sodacan" src="${SODA_CANS[S.sodaCan]}" alt="" draggable="false">`
+      ${showSoda ? `<div class="sodawrap"><span class="sodalabel">Spaßgetränk des Tages</span><img class="sodacan" src="${SODA_CANS[S.sodaCan]}" alt="" draggable="false"></div>`
         : (it?`<button class="stageimg" data-a="d-view" data-id="${it.id}" aria-label="${esc(it.category)} groß ansehen"><img class="${anim}" src="${url(it)}" alt="${esc(it.category)}" draggable="false"></button>`:`<span class="muted small">Kein passendes Teil</span>`)}
       <div class="rowctl">
         <button class="ic ${locked?'on':''}" data-a="d-lock" data-s="${s.key}" aria-label="${locked?'Lösen':'Fixieren'}" title="${locked?'Lösen':'Fixieren'}" ${it&&!showSoda?'':'disabled'}>${locked?ICON.lock:ICON.unlock}</button>
