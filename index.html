@@ -269,15 +269,15 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '9.23';
+const APP_VERSION = '9.24';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','T-Shirt Cropped','Longsleeve','Hemd/Bluse','Pullover','Weste','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
 const HEEL_HEIGHTS = ['Flach','Mittel','Hoch','Plateau'];
 const SHAFT_HEIGHTS = ['Niedrig','Stiefel'];
 const FITS = ['Skinny','Normal','Weit'];
-const FIT_CATS = ['Hose','T-Shirt','T-Shirt Cropped','Longsleeve','Hemd/Bluse','Pullover','Weste','Sakko'];
-const TOP_CATS = ['T-Shirt','T-Shirt Cropped','Longsleeve','Hemd/Bluse','Pullover','Weste','Sakko'];
+const FIT_CATS = ['Hose','T-Shirt','T-Shirt Cropped','Longsleeve','Hemd/Bluse','Pullover','Weste','Sakko','Jacke/Mantel','Kleid'];
+const TOP_CATS = ['T-Shirt','T-Shirt Cropped','Longsleeve','Hemd/Bluse','Pullover','Weste','Sakko','Jacke/Mantel'];
 const MATERIALS = ['Baumwolle','Leinen','Wolle','Cord','Denim','Leder','Seide','Synthetik','Gemischt'];
 const PATTERNS = ['Streifen','Karo','Punkte','Blumen','Print/Motiv','Glitzer'];
 const STYLES = ['Freizeit','Festlich','Sport','Business','Show'];
@@ -1707,6 +1707,11 @@ function pairHits(a,b){
     }
     // Proportion: nie Hose und Oberteil beide eng ODER beide weit gleichzeitig (Styling-Grundregel)
     if(TOP_CATS.includes(o.category) && o.fit && o.fit===hose.fit && hose.fit!=='Normal') h.push('schnitt');
+  }
+  // dieselbe Proportionsregel auch für Kleid + Jacke/Mantel
+  const kleid=of('Kleid');
+  if(kleid && kleid.fit){ const o=kleid===a?b:a;
+    if(o.category==='Jacke/Mantel' && o.fit && o.fit===kleid.fit && kleid.fit!=='Normal') h.push('schnitt');
   }
   // Mütze/Haube nie zu Festlich oder Business
   const kp=of('Kopfbedeckung');
