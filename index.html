@@ -269,7 +269,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '9.24';
+const APP_VERSION = '9.25';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','T-Shirt Cropped','Longsleeve','Hemd/Bluse','Pullover','Weste','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
@@ -519,7 +519,7 @@ function viewSchrank(){
   const nf = Object.values(S.f).reduce((a,s)=>a+s.size,0);
   return `<div class="head"><h1>Kastl</h1><span class="count">${list.length===S.items.length?`${list.length} Teile`:`${list.length} von ${S.items.length}`}</span>
     <button class="icbtn" data-a="stoggle" aria-label="Suchen" aria-expanded="${!!S.searchOpen}">${ICON.search||'🔍'}</button>
-    <button class="btn ghost sm push" data-a="sortToggle" title="Sortierung wechseln">${byCat?'Nach Art':'Nach Farbe'}</button>
+    <button class="btn ghost sm push" data-a="sortToggle" title="Sortierung wechseln">${byCat?'Nach Farbe':'Nach Art'}</button>
     <button class="btn ghost sm" data-a="ftoggle" aria-expanded="${S.filterOpen}">Filter${nf?` (${nf})`:''}</button>
     <button class="btn ${S.sel?'':'ghost'} sm" data-a="selmode">${S.sel?'Fertig':'Auswählen'}</button></div>
     ${S.searchOpen?`<div class="field"><input id="schrank-search" data-c="schrank-search" type="text" value="${esc(S.search||'')}" placeholder="Suche nach Art, Farbe, Notiz …" aria-label="Suche"></div>`:''}
@@ -1336,10 +1336,17 @@ function renderMkFullView(){
     ${FIT_CATS.includes(it.category) && it.fit?`<div class="viewfield"><h3>Schnitt</h3>${esc(it.fit)}</div>`:''}
     <div class="viewfield"><h3>Notiz</h3>${esc(it.note||'—')}</div>
     <div class="viewfield"><h3>Von</h3>${esc((S.mk.users||{})[it.user_id]||'Unbekannt')}</div>
-    <div class="actions"><button class="btn ghost" data-a="mk-back">Zurück</button></div>
+    <div class="actions"><button class="btn ghost" data-a="mk-back">Zurück</button><button class="btn" data-a="mk-edit" data-id="${it.id}">Bearbeiten</button></div>
   </div>`;
   sheet.hidden=false;
 }
+function openMkEdit(id){
+  const it=(S.mk?.items||[]).find(i=>i.id===id); if(!it) return;
+  S.sheetMode='edit';
+  S.edit={id, foreign:true, cat:it.category, color:it.color, color2:it.color2||'', styles:[...(it.styles||[])], seasons:[...(it.seasons||[])], material:it.material||'', pattern:it.pattern||'', note:it.note||'', bagSize:it.bag_size||'', heel:it.heel||'', shaft:it.shaft||'', fit:it.fit||'', loanedTo:it.loaned_to||'', loanedAt:it.loaned_at||null, blob:null, preview:null, busy:false};
+  renderSheet();
+}
+function editSource(){ return S.edit.foreign ? (S.mk?.items||[]).find(i=>i.id===S.edit.id) : S.items.find(i=>i.id===S.edit.id); }
 function renderViewSheet(){
   const it=S.items.find(i=>i.id===S.viewId); if(!it) return closeSheet();
   sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="${esc(it.category)}">
@@ -1378,9 +1385,9 @@ function renderSheet(){
   if(S.sheetMode==='mkview') return renderMkFullView();
   if(S.sheetMode==='qzoom') return renderQZoom();
   if(S.sheetMode==='loans') return renderLoans();
-  const e=S.edit, it=S.items.find(i=>i.id===e.id);
+  const e=S.edit, it=editSource();
   sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Teil bearbeiten">
-    <div class="phead"><h2>${esc(e.cat)}</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>
+    <div class="phead"><h2>${esc(e.cat)}</h2><button class="icbtn" data-a="${e.foreign?'mk-edit-close':'close'}" aria-label="Schließen">${ICON.x}</button></div>
     <div class="ph edit"><img src="${e.preview||url(it)}" alt="">${e.busy?'<div class="spinner over"></div>':''}</div>
     <div class="tools">
       <button class="tool" data-a="e-rot" data-v="-90" aria-label="90 Grad nach links drehen">${ICON.rotL}</button>
@@ -1393,7 +1400,7 @@ function renderSheet(){
       <button class="tool" data-a="e-clean">Reste entfernen</button>
     </div>
     ${fieldsHTML(e,'e','x')}
-    <div class="actions"><button class="btn" data-a="e-save">Änderungen speichern</button><button class="btn danger" data-a="e-del">Löschen</button></div>
+    <div class="actions"><button class="btn" data-a="e-save">Änderungen speichern</button>${e.foreign?'':'<button class="btn danger" data-a="e-del">Löschen</button>'}</div>
   </div>`;
   sheet.hidden=false;
 }
@@ -1401,7 +1408,7 @@ function closeSheet(){ sheet.hidden=true; sheet.innerHTML=''; S.sheetMode=null; 
 async function editCanvas(){
   const e=S.edit;
   if(e.blob) return blobToCanvas(e.blob);
-  const it=S.items.find(i=>i.id===e.id);
+  const it=editSource();
   const {data,error}=await sb.storage.from(BUCKET).download(it.image_path);
   if(error) throw error;
   return blobToCanvas(data);
@@ -1417,7 +1424,7 @@ async function editImage(op){
   e.busy=false; if(S.sheetMode==='edit') renderSheet();
 }
 async function saveEdit(btn){
-  const e=S.edit, it=S.items.find(i=>i.id===e.id);
+  const e=S.edit, it=editSource();
   btn.disabled=true;
   try{
     const patch={category:e.cat,color:e.color,color2:e.color2||null,styles:e.styles,seasons:e.seasons,material:e.material||null,pattern:e.pattern||null,note:e.note||null,bag_size:e.cat==='Tasche'?(e.bagSize||null):null,heel:e.cat==='Schuhe'?(e.heel||null):null,shaft:e.cat==='Schuhe'?(e.shaft||null):null,fit:FIT_CATS.includes(e.cat)?(e.fit||null):null,loaned_to:e.loanedAt?(e.loanedTo||null):null,loaned_at:e.loanedAt?e.loanedAt:null};
@@ -1433,13 +1440,14 @@ async function saveEdit(btn){
     }
     const {data,error}=await sb.from('items').update(patch).eq('id',e.id).select().single();
     if(error) throw error;
-    if(e.blob) await sb.storage.from(BUCKET).remove([it.image_path]);
+    if(e.blob){ try{ await sb.storage.from(BUCKET).remove([it.image_path]); }catch(ce){ console.warn('Altes Bild konnte nicht gelöscht werden', ce); } }
     Object.assign(it,data);
-    closeSheet(); render(); toast('Änderungen gespeichert');
+    if(e.foreign){ S.sheetMode='multikasten'; renderMultikasten(); } else { closeSheet(); render(); }
+    toast('Änderungen gespeichert');
   }catch(err){ console.error(err); btn.disabled=false; toast('Speichern fehlgeschlagen: '+(err.message||err)); }
 }
 function deleteItem(){
-  const it=S.items.find(i=>i.id===S.edit.id); if(it) deleteItems([it]);
+  const it=editSource(); if(it) deleteItems([it]);
 }
 
 /* ---------------- Radiergummi ---------------- */
@@ -1532,46 +1540,65 @@ function planTrip(n,se=curSeason()){
   }
   return plan;
 }
-async function tripWeather(dest,n){
+async function tripWeather(dest,n,startDate){
   const g=await (await fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&language=de&name='+encodeURIComponent(dest))).json();
   const p=g.results?.[0]; if(!p) return null;
-  // Zeigt immer die nächsten 10 Tage an, unabhängig von der eingestellten Reisedauer.
-  const j=await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.latitude}&longitude=${p.longitude}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code&timezone=auto&forecast_days=10`)).json();
+  const todayISO=new Date().toISOString().slice(0,10);
+  const offset=Math.max(0, Math.round((new Date(startDate||todayISO)-new Date(todayISO))/86400000));
+  // Wettervorhersagen gibt's zuverlässig nur für die nächsten ~16 Tage ab heute.
+  const MAXDAYS=16;
+  const j=await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.latitude}&longitude=${p.longitude}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code&timezone=auto&forecast_days=${MAXDAYS}`)).json();
   const mx=j.daily.temperature_2m_max, mn=j.daily.temperature_2m_min, pr=j.daily.precipitation_probability_max, wc=j.daily.weather_code, tm=j.daily.time;
-  const packN=Math.min(n,mx.length);
-  const avg=(a)=>a.slice(0,packN).reduce((x,y)=>x+y,0)/packN;
-  const hi=avg(mx), lo=avg(mn), rain=Math.max(...pr.slice(0,packN).map(x=>x||0));
+  const avail=Math.max(0, Math.min(n, mx.length-offset));   // wie viele der gewünschten Reisetage schon vorhergesagt werden können
+  const days=[];
+  for(let i=0;i<n;i++){
+    const idx=offset+i;
+    const dateIso=new Date(new Date(todayISO).getTime()+idx*86400000).toISOString().slice(0,10);
+    const label=idx===0?'Heute':idx===1?'Morgen':new Date(dateIso).toLocaleDateString('de-AT',{weekday:'short'});
+    if(idx<mx.length){
+      const code=wc?.[idx], prb=pr?.[idx]||0;
+      const w=SNOW.has(code)?'Schnee':(RAIN.has(code)||prb>=60)?'Regen':'trocken';
+      days.push({label, max:Math.round(mx[idx]), min:Math.round(mn[idx]), what:w});
+    } else days.push({label, soon:true});
+  }
+  if(!avail) return {name:p.name, season:null, text:null, days, soon:true};
+  const avg=(a)=>{ let s=0; for(let i=0;i<avail;i++) s+=a[offset+i]; return s/avail; };
+  const hi=avg(mx), lo=avg(mn); let rain=0; for(let i=0;i<avail;i++) rain=Math.max(rain,pr[offset+i]||0);
   const season=hi>=22?SO:hi<=10?WI:UE;
-  const days=tm.map((iso,i)=>{
-    const code=wc?.[i], prb=pr?.[i]||0;
-    const w=SNOW.has(code)?'Schnee':(RAIN.has(code)||prb>=60)?'Regen':'trocken';
-    const label=i===0?'Heute':i===1?'Morgen':new Date(iso).toLocaleDateString('de-AT',{weekday:'short'});
-    return {label, max:Math.round(mx[i]), min:Math.round(mn[i]), what:w};
-  });
-  return {name:p.name, season, text:`${p.name}: ${Math.round(lo)}–${Math.round(hi)} °C, ${rain>=60?'Regen wahrscheinlich':rain>=30?'vereinzelt Regen':'meist trocken'}`, days, short:n>mx.length};
+  return {name:p.name, season, text:`${p.name}: ${Math.round(lo)}–${Math.round(hi)} °C, ${rain>=60?'Regen wahrscheinlich':rain>=30?'vereinzelt Regen':'meist trocken'}`, days, short:avail<n};
 }
-const syncTrip=()=>{ const el=document.getElementById('t-dest'); if(el) S.trip.dest=el.value; };
+const syncTrip=()=>{ const el=document.getElementById('t-dest'); if(el) S.trip.dest=el.value; const d=document.getElementById('t-start'); if(d && d.value) S.trip.startDate=d.value; };
 async function goTrip(btn){
   syncTrip(); const t=S.trip, dest=(t.dest||'').trim();
   btn.disabled=true; t.wx=null; t.note='';
   let season=curSeason();
   if(dest){
-    try{ const w=await tripWeather(dest,t.days); if(w){ t.wx=w; season=w.season; if(w.short) t.note='Wetter gilt nur für die ersten 10 Tage, danach nehme ich die Jahreszeit an.'; } else t.note='Ziel nicht gefunden, ich nehme die Jahreszeit von hier.'; }
+    try{
+      const w=await tripWeather(dest,t.days,t.startDate); 
+      if(w){
+        t.wx=w;
+        if(w.soon){ t.note='Für diesen Zeitraum gibt es noch keine Vorhersage, bald vor der Reise verfügbar. Ich nehme bis dahin die Jahreszeit von hier.'; }
+        else{ season=w.season; if(w.short) t.note='Für die späteren Tage gibt es noch keine Vorhersage, bald verfügbar.'; }
+      } else t.note='Ziel nicht gefunden, ich nehme die Jahreszeit von hier.';
+    }
     catch(e){ t.note='Wetter gerade nicht abrufbar, ich nehme die Jahreszeit von hier.'; }
   }
   t.season=season; t.plan=planTrip(t.days,season); renderTravel();
 }
 function renderTravel(){
-  const t=S.trip||(S.trip={days:3,plan:null}), n=t.days;
+  const todayISO=new Date().toISOString().slice(0,10);
+  const t=S.trip||(S.trip={days:3,plan:null,startDate:todayISO}), n=t.days;
+  if(!t.startDate) t.startDate=todayISO;
   const plan=t.plan?`<div class="field">${t.plan.map((its,d)=>`<div style="display:flex;align-items:center;gap:8px;margin:8px 0"><strong style="min-width:48px">Tag ${d+1}</strong><div style="display:flex;gap:6px;overflow-x:auto">${its.map(i=>`<img src="${url(i)}" alt="${esc(i.category)}" style="height:64px;width:auto;border-radius:8px;background:#eee" draggable="false">`).join('')}</div></div>`).join('')}
       <p style="margin-top:12px"><strong>Unterwäsche:</strong> ${n+1} Stück<br><strong>Socken:</strong> ${n+1} Stück</p></div>`:'';
   sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Reisemodus">
     <div class="phead"><h2>Reisemodus</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>
     <div class="field"><h3>Wohin geht's?</h3><input id="t-dest" type="text" placeholder="z. B. Hawaii, Kopenhagen" value="${esc(t.dest||'')}" aria-label="Reiseziel"></div>
+    <div class="field"><h3>Reisedatum</h3><input id="t-start" type="date" min="${todayISO}" value="${esc(t.startDate)}" aria-label="Reisebeginn"></div>
     <div class="field"><h3>Wie viele Tage?</h3><div class="inline" style="align-items:center;gap:14px">
       <button class="btn ghost sm" data-a="t-dec" aria-label="Einen Tag weniger" ${n<=1?'disabled':''}>−</button><strong style="font-size:1.4rem;min-width:28px;text-align:center">${n}</strong><button class="btn ghost sm" data-a="t-inc" aria-label="Einen Tag mehr" ${n>=14?'disabled':''}>+</button></div></div>
-    ${t.wx?`<p class="wx" style="margin:0 0 6px">${esc(t.wx.text)} · ich packe für ${esc(t.season)}</p>`:''}
-    ${t.wx?.days?.length?`<div class="wx3" style="margin:0 0 10px">${t.wx.days.map(d=>`${esc(d.label)} ${d.max}°/${d.min}° ${esc(d.what)}`).join(' · ')}</div>`:''}
+    ${t.wx && !t.wx.soon?`<p class="wx" style="margin:0 0 6px">${esc(t.wx.text)} · ich packe für ${esc(t.season)}</p>`:''}
+    ${t.wx?.days?.length?`<div class="wx3" style="margin:0 0 10px">${t.wx.days.map(d=>d.soon?`${esc(d.label)} bald verfügbar`:`${esc(d.label)} ${d.max}°/${d.min}° ${esc(d.what)}`).join(' · ')}</div>`:''}
     ${t.note?`<p class="wx" style="margin:0 0 6px">${esc(t.note)}</p>`:''}
     ${plan}
     <div class="actions"><button class="btn" data-a="t-go">${t.plan?'Neu würfeln':'Packliste erstellen'}</button><button class="btn ghost" data-a="m-menu">Zurück</button></div>
@@ -2072,6 +2099,8 @@ const A = {
   'e-loan-return':()=>{ const o=S.edit; o.loanedTo=''; o.loanedAt=null; o.touched=true; rerender('e'); },
   'mk-view':(t)=>{ S.mk.viewId=t.dataset.id; S.sheetMode='mkview'; renderMkFullView(); },
   'mk-back':()=>{ S.sheetMode='multikasten'; renderMultikasten(); },
+  'mk-edit':(t)=>openMkEdit(t.dataset.id),
+  'mk-edit-close':()=>{ S.sheetMode='multikasten'; renderMultikasten(); },
   'm-travel':()=>{ S.sheetMode='travel'; S.trip=S.trip||{days:3,plan:null}; renderTravel(); },
   'm-menu':()=>{ syncTrip(); openMenu(); },
   't-dec':()=>{ syncTrip(); S.trip.days=Math.max(1,S.trip.days-1); S.trip.plan=null; renderTravel(); },
