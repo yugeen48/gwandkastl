@@ -181,6 +181,12 @@ textarea{font:inherit}
 .hiddenrows{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0 0 48px;font-size:14px}
 .dactions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:22px 0 0}
 .dactions .wide{grid-column:1/-1}
+.collagebtn{grid-column:1/-1;justify-self:center;border:1px solid var(--line)}
+.collage{display:flex;flex-direction:column;background:var(--stage);border-radius:12px;overflow:hidden}
+.cslot{position:relative;display:flex;align-items:center;justify-content:center;height:16vh;min-height:100px;border-bottom:1px solid rgba(0,0,0,.06)}
+.cslot:last-child{border-bottom:0}
+.cslot img{max-height:92%;max-width:68%;object-fit:contain}
+.clabel{position:absolute;left:10px;top:8px;font-size:.68rem;color:var(--muted);background:rgba(255,255,255,.75);padding:1px 7px;border-radius:7px;z-index:1}
 .desc{margin:16px 0 0 48px;padding:12px 14px;background:var(--soft);font-size:15px;line-height:1.5}
 .desc.loading{color:var(--muted)}
 .desc .occ{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
@@ -269,7 +275,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '9.25';
+const APP_VERSION = '9.29';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','T-Shirt Cropped','Longsleeve','Hemd/Bluse','Pullover','Weste','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
@@ -283,7 +289,7 @@ const PATTERNS = ['Streifen','Karo','Punkte','Blumen','Print/Motiv','Glitzer'];
 const STYLES = ['Freizeit','Festlich','Sport','Business','Show'];
 // Regenbogen-Reihenfolge für den Schrank, Schwarz/Grau/Weiß am Ende
 const COLOR_ORDER = ['Rot','Bordeaux','Rosa','Orange','Gelb','Oliv','Grün','Türkis','Blau','Marineblau','Violett','Braun','Beige','Weiß','Grau','Schwarz'];
-const SEASONS = ['Sommer','Übergang','Winter'];
+const SEASONS = ['Sommer','Frühling/Herbst','Winter'];
 const COLORS = {Schwarz:'#1a1a1a',Weiß:'#ffffff',Grau:'#9a9a9a',Beige:'#d9c7a7',Braun:'#7a4f2b',Rot:'#c62828',Bordeaux:'#6d1a2a',Rosa:'#f2a7c3',
   Orange:'#ef7d1a',Gelb:'#f3cd21',Grün:'#2f8a4e',Oliv:'#6f6b2d',Türkis:'#23b5a8',Blau:'#3a72d6',Marineblau:'#1d2b4f',Violett:'#7b3fa0'};
 const COLOR_REFS = {Schwarz:['#111111','#2a2a2a'],Weiß:['#f7f7f7','#ffffff','#ebe9e4'],Grau:['#5c5c5c','#808080','#a6a6a6','#c2c2c2'],
@@ -294,7 +300,7 @@ const COLOR_REFS = {Schwarz:['#111111','#2a2a2a'],Weiß:['#f7f7f7','#ffffff','#e
   Marineblau:['#1b2a4a','#22325a','#0f1c3f','#2a3550'],Violett:['#7d3c98','#8e44ad','#5b2c6f','#b39ddb','#6a3d9a']};
 const NEUTRAL = new Set(['Schwarz','Weiß','Grau','Beige','Braun','Marineblau']);
 
-const SO='Sommer', UE='Übergang', WI='Winter', ALL=[SO,UE,WI];
+const SO='Sommer', UE='Frühling/Herbst', WI='Winter', ALL=[SO,UE,WI];
 
 const SLOTS = [
   {key:'kopf',  label:'Kopf',          cats:['Kopfbedeckung'],               h:'clamp(76px,11vh,120px)'},
@@ -336,6 +342,7 @@ const ICON = {
   share:I('<path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>'),
   check:I('<path d="m5 12 5 5 9-10"/>'),
   thumb:I('<path d="M7 11v9H4v-9zM7 11l4-8a2.5 2.5 0 0 1 2.5 2.5V9h5a2 2 0 0 1 2 2.3l-1.3 7A2 2 0 0 1 17.2 20H7"/>'),
+  mannequin:I('<circle cx="12" cy="5" r="2.6"/><path d="M8 20V11.5a4 4 0 0 1 8 0V20"/><path d="M9 20h6"/>'),
   search:I('<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>'),
 };
 
@@ -690,11 +697,9 @@ async function processOne(q){
       }else q.recErr='Charly sieht hier kein Kleidungsstück (leer)';
     }catch(e){ console.warn('Erkennung nicht verfügbar', e); q.recErr=e.message; }
   }
+  // Automatischer Bügel-Abschnitt oben ausgebaut: hat zu oft Kragen/Schultern mitgeschnitten.
+  // Der Kleiderbügel darf im Foto sichtbar bleiben, lieber das als ein verstümmeltes Kleidungsstück.
   let box=rec?.box, hung=false;
-  if(box && rec.hangerBottom>0){    // Kleiderbügel/Haken oben abschneiden – mit Sicherheitsabstand, damit Kragen/Schultern nicht mit abgeschnitten werden
-    const [y0,,y1]=box, hb=rec.hangerBottom, margin=(y1-y0)*.05;
-    if(hb>y0 && hb<y0+(y1-y0)*.3){ box=[Math.max(y0,hb-margin),box[1],box[2],box[3]]; hung=true; }
-  }
   const work = box ? cropToBox(src, box, hung) : src;
   setStep(q,'Charly schneidet das Teil aus …');
   const remove = await getRemover();
@@ -1311,6 +1316,19 @@ function renderMultikasten(){
     <div class="phead"><h2>Multikastl</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>${body}</div>`;
   sheet.hidden=false;
 }
+function renderOutfitCollage(){
+  const slots=visibleSlots().filter(s=>!S.d.hidden.has(s.key));
+  const picks=[];
+  for(const s of slots){ const list=candidates(s); const it=currentItem(s,list); if(it) picks.push({slot:s,it}); }
+  const body = picks.length
+    ? `<div class="collage">${picks.map(({slot,it})=>`<div class="cslot"><span class="clabel">${esc(slot.label)}</span><img src="${url(it)}" alt="${esc(it.category)}"></div>`).join('')}</div>`
+    : `<p class="muted">Noch keine Teile ausgewählt.</p>`;
+  sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Komplettes Outfit">
+    <div class="phead"><h2>Komplettes Outfit</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>
+    ${body}
+  </div>`;
+  sheet.hidden=false;
+}
 function renderQZoom(){
   const q=S.queue.find(x=>x.id===S.qzoomId); if(!q){ S.sheetMode=null; return closeSheet(); }
   sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Foto">
@@ -1384,6 +1402,7 @@ function renderSheet(){
   if(S.sheetMode==='multikasten') return renderMultikasten();
   if(S.sheetMode==='mkview') return renderMkFullView();
   if(S.sheetMode==='qzoom') return renderQZoom();
+  if(S.sheetMode==='collage') return renderOutfitCollage();
   if(S.sheetMode==='loans') return renderLoans();
   const e=S.edit, it=editSource();
   sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Teil bearbeiten">
@@ -1561,7 +1580,13 @@ async function tripWeather(dest,n,startDate){
       days.push({label, max:Math.round(mx[idx]), min:Math.round(mn[idx]), what:w});
     } else days.push({label, soon:true});
   }
-  if(!avail) return {name:p.name, season:null, text:null, days, soon:true};
+  if(!avail){
+    // Für den genauen Reisezeitraum gibt's noch keine Vorhersage - als Anhaltspunkt das aktuelle Klima am Reiseziel selbst nehmen, statt der Jahreszeit hier.
+    const nowAvg=(a)=>a.reduce((x,y)=>x+y,0)/a.length;
+    const hiNow=nowAvg(mx), loNow=nowAvg(mn);
+    const seasonNow=hiNow>=22?SO:hiNow<=10?WI:UE;
+    return {name:p.name, season:seasonNow, text:null, days, soon:true};
+  }
   const avg=(a)=>{ let s=0; for(let i=0;i<avail;i++) s+=a[offset+i]; return s/avail; };
   const hi=avg(mx), lo=avg(mn); let rain=0; for(let i=0;i<avail;i++) rain=Math.max(rain,pr[offset+i]||0);
   const season=hi>=22?SO:hi<=10?WI:UE;
@@ -1577,7 +1602,7 @@ async function goTrip(btn){
       const w=await tripWeather(dest,t.days,t.startDate); 
       if(w){
         t.wx=w;
-        if(w.soon){ t.note='Für diesen Zeitraum gibt es noch keine Vorhersage, bald vor der Reise verfügbar. Ich nehme bis dahin die Jahreszeit von hier.'; }
+        if(w.soon){ season=w.season; t.note=`Für diesen Zeitraum gibt es noch keine genaue Vorhersage, bald vor der Reise verfügbar. Ich richte mich bis dahin nach dem aktuellen Klima in ${esc(w.name)}.`; }
         else{ season=w.season; if(w.short) t.note='Für die späteren Tage gibt es noch keine Vorhersage, bald verfügbar.'; }
       } else t.note='Ziel nicht gefunden, ich nehme die Jahreszeit von hier.';
     }
@@ -1640,6 +1665,7 @@ function viewDress(){
       ?`<div class="desc loading" aria-live="polite">${CHARLY}<span>${S.d.desc.occ?`<span class="occ">${esc(S.d.desc.occ)}</span>`:''}${esc(S.d.desc.text)}</span></div>`
       :`<div class="desc" aria-live="polite">${S.d.desc.occ?`<span class="occ">${esc(S.d.desc.occ)}</span>`:''}<span class="who">Charly</span>${esc(S.d.desc.text||'')}</div>`):''}
     <div class="dactions"><button class="btn ghost" data-a="d-shuffle">${ICON.shuffle}Passend mischen</button><button class="btn ghost" data-a="d-suggest">Vorschlagen</button>
+      <button class="icbtn collagebtn" data-a="d-collage" aria-label="Komplettes Outfit ansehen" title="Komplettes Outfit ansehen">${ICON.mannequin}</button>
       <button class="btn ghost wide wearbtn" data-a="d-wear">${ICON.thumb}Das zieh ich an</button>
       ${editO?`<button class="btn" data-a="d-update">Änderungen speichern</button><button class="btn ghost" data-a="d-save">Als neues Outfit</button>`
              :`<button class="btn wide" data-a="d-save">Outfit speichern</button>`}</div>
@@ -2122,6 +2148,7 @@ const A = {
   'q-remove':(t)=>{ S.queue=S.queue.filter(q=>q.id!==t.dataset.i); render(); },
   'q-cancel':()=>cancelQueue(),
   'q-zoom':(t)=>{ S.qzoomId=t.dataset.i; S.sheetMode='qzoom'; renderQZoom(); },
+  'd-collage':()=>{ S.sheetMode='collage'; renderOutfitCollage(); },
   'q-retry':(t)=>{
     const q=qById(t.dataset.i); if(!q) return;
     q.retryCount=(q.retryCount||0)+1;
