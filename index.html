@@ -181,13 +181,13 @@ textarea{font:inherit}
 .hiddenrows{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0 0 48px;font-size:14px}
 .dactions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:22px 0 0}
 .dactions .wide{grid-column:1/-1}
-.collagebtn{grid-column:1/-1;justify-self:end;border:1px solid var(--line)}
-.flatlay{position:fixed;top:calc(64px + env(safe-area-inset-top,0px));right:0;z-index:50;display:grid;gap:0;width:min(42vw,170px);
+.collagefab{position:fixed;right:max(14px, env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);z-index:30;
+  width:48px;height:48px;border-radius:50%;background:var(--bg);box-shadow:0 2px 10px rgba(0,0,0,.18);border:1px solid var(--line)}
+.flatlay{position:fixed;top:50%;right:0;z-index:50;display:grid;gap:0;width:min(42vw,170px);
   max-height:46vh;overflow:hidden;box-shadow:-4px 6px 24px rgba(0,0,0,.22);
-  transform:translateX(12px);opacity:0;transition:transform .32s ease,opacity .32s ease}
-.flatlay.show{transform:translateX(0);opacity:1}
-.ftile{position:relative;aspect-ratio:1;background:#eee;overflow:hidden}
-.ftile img{width:100%;height:100%;object-fit:cover;display:block}
+  transform:translate(60px,-50%);opacity:0;transition:transform .32s ease,opacity .32s ease}
+.flatlay.show{transform:translate(0,-50%);opacity:1}
+.ftile{position:relative;aspect-ratio:1;overflow:hidden}
 .flabel{position:absolute;left:0;right:0;bottom:0;padding:4px 7px;font-size:.62rem;color:#fff;
   background:linear-gradient(transparent,rgba(0,0,0,.55));text-align:left}
 .desc{margin:16px 0 0 48px;padding:12px 14px;background:var(--soft);font-size:15px;line-height:1.5}
@@ -278,7 +278,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '9.32';
+const APP_VERSION = '9.36';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','T-Shirt Cropped','Longsleeve','Hemd/Bluse','Pullover','Weste','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
@@ -1333,7 +1333,7 @@ function showOutfitFlatlay(){
   el.id='flatlay';
   el.className='flatlay';
   el.style.gridTemplateColumns=`repeat(${cols},1fr)`;
-  el.innerHTML = picks.map(it=>`<div class="ftile"><img src="${url(it)}" alt="${esc(it.category)}"><span class="flabel">${esc(it.category)}</span></div>`).join('');
+  el.innerHTML = picks.map(it=>`<div class="ftile" style="background:${COLORS[it.color]||'#999'}"><span class="flabel">${esc(it.category)} · ${esc(it.color||'—')}</span></div>`).join('');
   document.body.appendChild(el);
   requestAnimationFrame(()=>el.classList.add('show'));
   clearTimeout(S.flatlayTimer);
@@ -1663,7 +1663,8 @@ function viewDress(){
   if(!S.items.length) return `<section class="empty"><h1>Noch nichts zum Anziehen</h1><p>Sobald Teile im Kastl sind, kannst du hier Kombinationen durchblättern.</p><button class="btn" data-a="nav" data-v="add">Teile hinzufügen</button></section>`;
   const slots=visibleSlots(), shown=slots.filter(s=>!S.d.hidden.has(s.key)), hid=slots.filter(s=>S.d.hidden.has(s.key));
   const editO=S.d.editing && S.outfits.find(o=>o.id===S.d.editing);
-  return `<div class="dress">
+  return `<button class="icbtn collagefab" data-a="d-collage" aria-label="Outfit als Flatlay ansehen" title="Outfit als Flatlay ansehen">${ICON.mannequin}</button>
+  <div class="dress">
     ${editO?`<div class="editing"><span>Du bearbeitest „${esc(editO.name)}“</span><button class="linkbtn" data-a="d-endedit">Beenden</button></div>`:''}
     ${S.wx?`<div class="wx">Wien: ${esc(S.wx.text)}</div>`:''}
     ${S.wx?.days?.length?`<div class="wx3">${S.wx.days.map(d=>`${esc(d.label)} ${d.max}°/${d.min}° ${esc(d.what)}`).join(' · ')}</div>`:''}
@@ -1675,7 +1676,6 @@ function viewDress(){
       ?`<div class="desc loading" aria-live="polite">${CHARLY}<span>${S.d.desc.occ?`<span class="occ">${esc(S.d.desc.occ)}</span>`:''}${esc(S.d.desc.text)}</span></div>`
       :`<div class="desc" aria-live="polite">${S.d.desc.occ?`<span class="occ">${esc(S.d.desc.occ)}</span>`:''}<span class="who">Charly</span>${esc(S.d.desc.text||'')}</div>`):''}
     <div class="dactions"><button class="btn ghost" data-a="d-shuffle">${ICON.shuffle}Passend mischen</button><button class="btn ghost" data-a="d-suggest">Vorschlagen</button>
-      <button class="icbtn collagebtn" data-a="d-collage" aria-label="Outfit als Flatlay ansehen" title="Outfit als Flatlay ansehen">${ICON.mannequin}</button>
       <button class="btn ghost wide wearbtn" data-a="d-wear">${ICON.thumb}Das zieh ich an</button>
       ${editO?`<button class="btn" data-a="d-update">Änderungen speichern</button><button class="btn ghost" data-a="d-save">Als neues Outfit</button>`
              :`<button class="btn wide" data-a="d-save">Outfit speichern</button>`}</div>
