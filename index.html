@@ -181,12 +181,15 @@ textarea{font:inherit}
 .hiddenrows{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0 0 48px;font-size:14px}
 .dactions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:22px 0 0}
 .dactions .wide{grid-column:1/-1}
-.collagebtn{grid-column:1/-1;justify-self:center;border:1px solid var(--line)}
-.collage{display:flex;flex-direction:column;background:var(--stage);border-radius:12px;overflow:hidden}
-.cslot{position:relative;display:flex;align-items:center;justify-content:center;height:16vh;min-height:100px;border-bottom:1px solid rgba(0,0,0,.06)}
-.cslot:last-child{border-bottom:0}
-.cslot img{max-height:92%;max-width:68%;object-fit:contain}
-.clabel{position:absolute;left:10px;top:8px;font-size:.68rem;color:var(--muted);background:rgba(255,255,255,.75);padding:1px 7px;border-radius:7px;z-index:1}
+.collagebtn{grid-column:1/-1;justify-self:end;border:1px solid var(--line)}
+.flatlay{position:fixed;top:calc(64px + env(safe-area-inset-top,0px));right:0;z-index:50;display:grid;gap:0;width:min(42vw,170px);
+  max-height:46vh;overflow:hidden;box-shadow:-4px 6px 24px rgba(0,0,0,.22);
+  transform:translateX(12px);opacity:0;transition:transform .32s ease,opacity .32s ease}
+.flatlay.show{transform:translateX(0);opacity:1}
+.ftile{position:relative;aspect-ratio:1;background:#eee;overflow:hidden}
+.ftile img{width:100%;height:100%;object-fit:cover;display:block}
+.flabel{position:absolute;left:0;right:0;bottom:0;padding:4px 7px;font-size:.62rem;color:#fff;
+  background:linear-gradient(transparent,rgba(0,0,0,.55));text-align:left}
 .desc{margin:16px 0 0 48px;padding:12px 14px;background:var(--soft);font-size:15px;line-height:1.5}
 .desc.loading{color:var(--muted)}
 .desc .occ{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
@@ -275,7 +278,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '9.29';
+const APP_VERSION = '9.32';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','T-Shirt Cropped','Longsleeve','Hemd/Bluse','Pullover','Weste','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
@@ -1316,18 +1319,26 @@ function renderMultikasten(){
     <div class="phead"><h2>Multikastl</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>${body}</div>`;
   sheet.hidden=false;
 }
-function renderOutfitCollage(){
-  const slots=visibleSlots().filter(s=>!S.d.hidden.has(s.key));
-  const picks=[];
-  for(const s of slots){ const list=candidates(s); const it=currentItem(s,list); if(it) picks.push({slot:s,it}); }
-  const body = picks.length
-    ? `<div class="collage">${picks.map(({slot,it})=>`<div class="cslot"><span class="clabel">${esc(slot.label)}</span><img src="${url(it)}" alt="${esc(it.category)}"></div>`).join('')}</div>`
-    : `<p class="muted">Noch keine Teile ausgewählt.</p>`;
-  sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Komplettes Outfit">
-    <div class="phead"><h2>Komplettes Outfit</h2><button class="icbtn" data-a="close" aria-label="Schließen">${ICON.x}</button></div>
-    ${body}
-  </div>`;
-  sheet.hidden=false;
+function currentOutfitPicks(){
+  const slots=visibleSlots().filter(s=>!S.d.hidden.has(s.key)), out=[];
+  for(const s of slots){ const list=candidates(s); const it=currentItem(s,list); if(it) out.push(it); }
+  return out;
+}
+function showOutfitFlatlay(){
+  const picks=currentOutfitPicks();
+  document.getElementById('flatlay')?.remove();
+  if(!picks.length){ toast('Noch keine Teile ausgewählt'); return; }
+  const cols = picks.length<=4 ? 2 : 3;
+  const el=document.createElement('div');
+  el.id='flatlay';
+  el.className='flatlay';
+  el.style.gridTemplateColumns=`repeat(${cols},1fr)`;
+  el.innerHTML = picks.map(it=>`<div class="ftile"><img src="${url(it)}" alt="${esc(it.category)}"><span class="flabel">${esc(it.category)}</span></div>`).join('');
+  document.body.appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('show'));
+  clearTimeout(S.flatlayTimer);
+  S.flatlayTimer=setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(),400); }, 5000);
+  el.onclick=()=>{ clearTimeout(S.flatlayTimer); el.classList.remove('show'); setTimeout(()=>el.remove(),400); };
 }
 function renderQZoom(){
   const q=S.queue.find(x=>x.id===S.qzoomId); if(!q){ S.sheetMode=null; return closeSheet(); }
@@ -1402,7 +1413,6 @@ function renderSheet(){
   if(S.sheetMode==='multikasten') return renderMultikasten();
   if(S.sheetMode==='mkview') return renderMkFullView();
   if(S.sheetMode==='qzoom') return renderQZoom();
-  if(S.sheetMode==='collage') return renderOutfitCollage();
   if(S.sheetMode==='loans') return renderLoans();
   const e=S.edit, it=editSource();
   sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-label="Teil bearbeiten">
@@ -1665,7 +1675,7 @@ function viewDress(){
       ?`<div class="desc loading" aria-live="polite">${CHARLY}<span>${S.d.desc.occ?`<span class="occ">${esc(S.d.desc.occ)}</span>`:''}${esc(S.d.desc.text)}</span></div>`
       :`<div class="desc" aria-live="polite">${S.d.desc.occ?`<span class="occ">${esc(S.d.desc.occ)}</span>`:''}<span class="who">Charly</span>${esc(S.d.desc.text||'')}</div>`):''}
     <div class="dactions"><button class="btn ghost" data-a="d-shuffle">${ICON.shuffle}Passend mischen</button><button class="btn ghost" data-a="d-suggest">Vorschlagen</button>
-      <button class="icbtn collagebtn" data-a="d-collage" aria-label="Komplettes Outfit ansehen" title="Komplettes Outfit ansehen">${ICON.mannequin}</button>
+      <button class="icbtn collagebtn" data-a="d-collage" aria-label="Outfit als Flatlay ansehen" title="Outfit als Flatlay ansehen">${ICON.mannequin}</button>
       <button class="btn ghost wide wearbtn" data-a="d-wear">${ICON.thumb}Das zieh ich an</button>
       ${editO?`<button class="btn" data-a="d-update">Änderungen speichern</button><button class="btn ghost" data-a="d-save">Als neues Outfit</button>`
              :`<button class="btn wide" data-a="d-save">Outfit speichern</button>`}</div>
@@ -2148,7 +2158,7 @@ const A = {
   'q-remove':(t)=>{ S.queue=S.queue.filter(q=>q.id!==t.dataset.i); render(); },
   'q-cancel':()=>cancelQueue(),
   'q-zoom':(t)=>{ S.qzoomId=t.dataset.i; S.sheetMode='qzoom'; renderQZoom(); },
-  'd-collage':()=>{ S.sheetMode='collage'; renderOutfitCollage(); },
+  'd-collage':()=>showOutfitFlatlay(),
   'q-retry':(t)=>{
     const q=qById(t.dataset.i); if(!q) return;
     q.retryCount=(q.retryCount||0)+1;
