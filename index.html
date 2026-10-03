@@ -241,6 +241,13 @@ textarea{font:inherit}
 .login .err{color:var(--danger);font-size:14px;margin-top:12px;min-height:1.4em}
 
 .toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:11px 18px;font-size:14px;z-index:60;max-width:90vw;display:flex;align-items:center;gap:16px}
+.coach-dim{position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.15)}
+.coach{position:fixed;z-index:151;max-width:260px;background:var(--ink);color:var(--bg);padding:14px 16px;border-radius:14px;font-size:14px;line-height:1.45;box-shadow:0 10px 28px rgba(0,0,0,.3)}
+.coach p{margin:0 0 12px}
+.coach-actions{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.coach-actions .linkbtn{color:var(--bg);opacity:.75;font-size:13px}
+.coach-actions .btn{padding:8px 16px;font-size:13px;background:var(--bg);color:var(--ink);border-color:var(--bg)}
+.coach-arrow{position:absolute;width:14px;height:14px;background:var(--ink);transform:rotate(45deg)}
 .toast .tundo{color:var(--bg);font-weight:500;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
 .tile{position:relative}
 .tile .check{position:absolute;top:8px;left:8px;width:32px;height:32px;border-radius:50%;border:2.5px solid #fff;background:rgba(0,0,0,.25);display:grid;place-items:center;box-shadow:0 1px 4px rgba(0,0,0,.25)}
@@ -282,7 +289,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '9.39';
+const APP_VERSION = '9.41';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','T-Shirt Cropped','Longsleeve','Hemd/Bluse','Pullover','Weste','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
@@ -378,7 +385,7 @@ const sb = configured ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 const S = {
   user:null, items:[], urls:{}, urlTime:0, folders:[], outfits:[],
   view:'schrank', filterOpen:false,
-  f:{cats:new Set(), colors:new Set(), styles:new Set(), seasons:new Set()},
+  f:{cats:new Set(), colors:new Set(), styles:new Set(), seasons:new Set(), material:new Set(), pattern:new Set(), fit:new Set()},
   d:loadDressPrefs(), queue:[], mstatus:'', sheetMode:null, edit:null, osave:null, bg:{}, menuStep:null,
 };
 function loadDressPrefs(){
@@ -395,6 +402,15 @@ const esc = (s) => String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const url = (i) => i ? (S.urls[i.image_path]?.url || '') : '';
 const chip = (label,on,attrs) => `<button class="chip ${on?'on':''}" ${attrs} aria-pressed="${on}">${esc(label)}</button>`;
 let toastT;
+function friendlyError(e){
+  const msg = (e && e.message) || String(e||'');
+  if(/load failed|failed to fetch|networkerror|the internet connection/i.test(msg)) return 'Gerade keine Verbindung, bitte nochmal versuchen.';
+  if(/schema cache|column .* does not exist|could not find the/i.test(msg)) return 'Die Datenbank ist noch nicht ganz aktuell, bitte die ausstehenden SQL-Updates einspielen.';
+  if(/jwt|refresh_token|not authenticated|invalid.*session/i.test(msg)) return 'Anmeldung abgelaufen, bitte Seite neu laden.';
+  if(/permission denied|row-level security|rls/i.test(msg)) return 'Dafür fehlt gerade die Berechtigung.';
+  if(/timeout|timed out/i.test(msg)) return 'Hat zu lange gedauert, bitte nochmal versuchen.';
+  return msg || 'Unbekannter Fehler';
+}
 function toast(msg, undo){
   const t=document.getElementById('toast');
   t.innerHTML=`<span>${esc(msg)}</span>${undo?'<button class="tundo" data-a="undo">Rückgängig</button>':''}`;
@@ -427,16 +443,70 @@ async function boot(){
   else if(!navigator.onLine && loadSnapshot()){ goOffline(); }
   else renderLogin();
 }
+/* ---- Kurze Einführungstour fürs allererste Mal (Sprechblasen), einmalig pro Gerät ---- */
+const ONBOARD_STEPS=[
+  {sel:'.brand', text:'Willkommen in deinem Gwandkastl! Kurz die wichtigsten Stellen zeigen?'},
+  {sel:'[data-a="nav"][data-v="add"]', text:'Hier fügst du neue Kleidungsstücke hinzu, einfach fotografieren, Charly erkennt den Rest automatisch.'},
+  {sel:'[data-a="nav"][data-v="dress"]', text:'Hier stellst du Outfits zusammen. Manche Bereiche sind anfangs ausgeblendet, unten in der Liste kannst du sie einblenden.'},
+  {sel:'[data-a="nav"][data-v="outfits"]', text:'Gespeicherte Outfits findest du hier wieder, zum späteren Nachschlagen.'},
+  {sel:'.brand', text:'Hier oben geht\'s außerdem zu Einstellungen, Sicherung und mehr. Viel Spaß beim Einrichten!'},
+];
+let onboardIdx=0;
+function pickVisible(sel){
+  const els=[...document.querySelectorAll(sel)];
+  return els.find(e=>e.offsetParent!==null) || els[0] || null;
+}
+function closeOnboarding(){
+  document.getElementById('coach')?.remove();
+  document.getElementById('coach-dim')?.remove();
+  try{ localStorage.setItem('gk-onboarded','1'); }catch{}
+  sb.auth.updateUser({data:{onboarded:true}}).catch(()=>{});
+}
+function showOnboardStep(){
+  document.getElementById('coach')?.remove();
+  document.getElementById('coach-dim')?.remove();
+  if(onboardIdx>=ONBOARD_STEPS.length){ closeOnboarding(); return; }
+  const step=ONBOARD_STEPS[onboardIdx];
+  const target=pickVisible(step.sel);
+  const dim=document.createElement('div'); dim.id='coach-dim'; dim.className='coach-dim';
+  document.body.appendChild(dim);
+  const el=document.createElement('div');
+  el.id='coach'; el.className='coach';
+  const last=onboardIdx===ONBOARD_STEPS.length-1;
+  el.innerHTML=`<p>${esc(step.text)}</p><div class="coach-actions">
+    <button class="linkbtn" id="coach-skip">Überspringen</button>
+    <button class="btn" id="coach-next">${last?'Los geht\'s':'Weiter'}</button>
+  </div>`;
+  document.body.appendChild(el);
+  const vw=innerWidth, vh=innerHeight, bw=260;
+  let top=80, left=Math.max(10,(vw-bw)/2);
+  if(target){
+    const r=target.getBoundingClientRect();
+    top=Math.min(vh-180, Math.max(10, r.bottom+14));
+    left=Math.min(vw-bw-10, Math.max(10, r.left));
+  }
+  el.style.top=top+'px'; el.style.left=left+'px';
+  document.getElementById('coach-next').onclick=()=>{ onboardIdx++; showOnboardStep(); };
+  document.getElementById('coach-skip').onclick=closeOnboarding;
+  dim.onclick=closeOnboarding;
+}
+function maybeStartOnboarding(){
+  let seenLocal=true; try{ seenLocal=!!localStorage.getItem('gk-onboarded'); }catch{}
+  const seenAccount=!!S.user?.user_metadata?.onboarded;
+  if(seenLocal || seenAccount) return;
+  onboardIdx=0;
+  setTimeout(showOnboardStep, 700);
+}
 async function start(){
   app.innerHTML = `<div class="login"><div class="spinner"></div></div>`;
   for(let attempt=0; attempt<4; attempt++){
-    try{ await loadAll(); saveSnapshot(); setBg('offline',null); render(); runPending(); checkLoanReminders(); return; }
+    try{ await loadAll(); saveSnapshot(); setBg('offline',null); render(); runPending(); checkLoanReminders(); maybeStartOnboarding(); return; }
     catch(e){
       if((!navigator.onLine || /fetch|network|load failed/i.test(e.message||'')) && loadSnapshot()){ goOffline(); return; }
       // Frisch ausgestellte Anmeldung kann Sekundenbruchteile "aus der Zukunft" kommen – kurz warten und nochmal
       if(/future|iat/i.test(e.message||'') && attempt<3){ await new Promise(r=>setTimeout(r,1500)); continue; }
       console.error(e);
-      app.innerHTML = `<div class="login"><div style="max-width:420px"><span class="logo">Gwandkastl</span><p>Die Daten konnten nicht geladen werden. Wurde <b>supabase-setup.sql</b> im SQL-Editor ausgeführt?</p><p class="muted small" style="margin-top:10px">${esc(e.message||e)}</p><button class="btn" style="margin-top:20px" onclick="location.reload()">Neu laden</button></div></div>`;
+      app.innerHTML = `<div class="login"><div style="max-width:420px"><span class="logo">Gwandkastl</span><p>Die Daten konnten nicht geladen werden. Wurde <b>supabase-setup.sql</b> im SQL-Editor ausgeführt?</p><p class="muted small" style="margin-top:10px">${esc(friendlyError(e))}</p><button class="btn" style="margin-top:20px" onclick="location.reload()">Neu laden</button></div></div>`;
       return;
     }
   }
@@ -477,6 +547,9 @@ function goOffline(){
   setBg('offline',{text:'Offline: Du siehst den letzten Stand. Hinzufügen und Ändern geht wieder mit Internet.', p:null, err:true});
   addEventListener('online', ()=>location.reload(), {once:true});
 }
+// Verbindung bricht mitten in der Nutzung weg (nicht erst beim Start) - kurzer Hinweis, ohne gleich auf den alten Stand umzuschalten
+addEventListener('offline', ()=>{ if(!S.offline) setBg('offline',{text:'Offline: Hinzufügen und Ändern geht erst wieder mit Internet.', p:null, err:true}); });
+addEventListener('online', ()=>{ if(!S.offline && S.bg.offline) setBg('offline', null); });
 async function loadAll(){
   const [it,fo,ou] = await Promise.all([
     sb.from('items').select('*').eq('user_id', S.user.id).order('created_at'),
@@ -519,6 +592,9 @@ function filtered(){
     (!f.colors.size || f.colors.has(i.color)) &&
     (!f.styles.size || (i.styles||[]).some(s=>f.styles.has(s))) &&
     (!f.seasons.size || !(i.seasons||[]).length || i.seasons.some(s=>f.seasons.has(s))) &&
+    (!f.material.size || f.material.has(i.material)) &&
+    (!f.pattern.size || f.pattern.has(i.pattern)) &&
+    (!f.fit.size || f.fit.has(i.fit)) &&
     (!q || [i.category,i.color,i.color2,i.material,i.pattern,i.note,...(i.styles||[]),...(i.seasons||[])].filter(Boolean).some(x=>x.toLowerCase().includes(q))));
 }
 function viewSchrank(){
@@ -590,6 +666,7 @@ function filterPanel(){
     <div class="field"><h3>Farbe <span class="muted">${esc(colSel)}</span></h3><div class="chips">${Object.entries(COLORS).map(([n,h])=>
       `<button class="sw ${S.f.colors.has(n)?'on':''}" style="background:${h}" data-a="f" data-g="colors" data-v="${n}" aria-label="${n}" aria-pressed="${S.f.colors.has(n)}" title="${n}"></button>`).join('')}</div></div>
     ${g('Stil','styles',STYLES)}${g('Jahreszeit','seasons',SEASONS)}
+    ${g('Material','material',MATERIALS)}${g('Muster','pattern',PATTERNS)}${g('Schnitt','fit',FITS)}
     <div class="field"><button class="linkbtn" data-a="freset">Filter zurücksetzen</button></div></div>`;
 }
 
@@ -947,7 +1024,7 @@ async function makeBackup(){
     const blob=await zip.generateAsync({type:'blob'});
     const name=`gwandkastl-sicherung-${new Date().toISOString().slice(0,10)}.zip`;
     S.backup={blob, name}; S.sheetMode='backupready'; renderBackupReady();
-  }catch(e){ console.error(e); toast('Sicherung fehlgeschlagen: '+(e.message||e)); }
+  }catch(e){ console.error(e); toast('Sicherung fehlgeschlagen: '+friendlyError(e)); }
   setBg('backup',null);
 }
 function renderBackupReady(){
@@ -1008,7 +1085,7 @@ async function restoreBackup(file){
     }
     await refreshUrls(false); saveSnapshot(); render();
     toast(`${added} Teile wiederhergestellt, ${skipped} übersprungen`);
-  }catch(e){ console.error(e); toast('Wiederherstellen fehlgeschlagen: '+(e.message||e)); }
+  }catch(e){ console.error(e); toast('Wiederherstellen fehlgeschlagen: '+friendlyError(e)); }
   setBg('backup',null);
 }
 async function startRecognizeAll(mode){
@@ -1023,7 +1100,7 @@ async function startRecognizeAll(mode){
     targets.forEach(i=>{ i.pending=true; i.edited=false; });
     closeSheet(); render(); toast('Charly legt los');
     runPending();
-  }catch(e){ console.error(e); toast('Starten fehlgeschlagen: '+(e.message||e)); }
+  }catch(e){ console.error(e); toast('Starten fehlgeschlagen: '+friendlyError(e)); }
 }
 
 /* ---------------- Bildbearbeitung ---------------- */
@@ -1232,7 +1309,7 @@ async function saveQueue(btn){
   let ok=0;
   for(const q of todo){
     try{ await saveItem(q); q.status='saved'; ok++; }
-    catch(e){ console.error(e); toast('Speichern fehlgeschlagen: '+(e.message||e)); break; }
+    catch(e){ console.error(e); toast('Speichern fehlgeschlagen: '+friendlyError(e)); break; }
   }
   S.queue=S.queue.filter(q=>q.status!=='saved');
   if(ok) toast(`${ok} ${ok===1?'Teil':'Teile'} gespeichert`);
@@ -1278,7 +1355,7 @@ function renderLoans(){
 async function returnLoan(id){
   const it=S.items.find(i=>i.id===id); if(!it) return;
   const {error}=await sb.from('items').update({loaned_to:null, loaned_at:null}).eq('id',id);
-  if(error){ toast('Fehlgeschlagen: '+(error.message||error)); return; }
+  if(error){ toast('Fehlgeschlagen: '+friendlyError(error)); return; }
   it.loaned_to=null; it.loaned_at=null;
   renderLoans();
 }
@@ -1477,7 +1554,7 @@ async function saveEdit(btn){
     Object.assign(it,data);
     if(e.foreign){ S.sheetMode='multikasten'; renderMultikasten(); } else { closeSheet(); render(); }
     toast('Änderungen gespeichert');
-  }catch(err){ console.error(err); btn.disabled=false; toast('Speichern fehlgeschlagen: '+(err.message||err)); }
+  }catch(err){ console.error(err); btn.disabled=false; toast('Speichern fehlgeschlagen: '+friendlyError(err)); }
 }
 function deleteItem(){
   const it=editSource(); if(it) deleteItems([it]);
@@ -1876,7 +1953,7 @@ async function describeCurrent(){
     const r=await gemini({task:'describe', items:its.map(brief)});
     if(my!==descRun) return;
     S.d.desc=r.description?{text:shortDesc(r.description)}:null;
-  }catch(e){ if(my!==descRun) return; S.d.desc=null; toast(e.message); }
+  }catch(e){ if(my!==descRun) return; S.d.desc=null; toast(friendlyError(e)); }
   if(S.view==='dress') render();
 }
 const SUGGEST_CHIPS=['Büro','Brunch','Show','Sport','Abend'];
@@ -1916,7 +1993,7 @@ async function runSuggest(occ){
     S.d.hidden=new Set(SLOTS.map(s=>s.key).filter(k=>!sel[k]));
     saveDressPrefs();
     S.d.desc={occ, text:shortDesc(r.description)};
-  }catch(e){ if(my===descRun){ S.d.desc=null; toast(e.message); } }
+  }catch(e){ if(my===descRun){ S.d.desc=null; toast(friendlyError(e)); } }
   setBg('ai',null); if(S.view==='dress') render();
 }
 
@@ -1962,7 +2039,7 @@ async function saveOutfit(btn){
     const {data,error}=await sb.from('outfits').insert({name,folder_id,slots,description}).select().single();
     if(error) throw error;
     S.outfits.push(data); S.d.editing=data.id; closeSheet(); render(); toast('Outfit gespeichert');
-  }catch(e){ console.error(e); btn.disabled=false; toast('Speichern fehlgeschlagen: '+(e.message||e)); }
+  }catch(e){ console.error(e); btn.disabled=false; toast('Speichern fehlgeschlagen: '+friendlyError(e)); }
 }
 function viewOutfits(){
   if(!S.outfits.length) return `<section class="empty"><h1>Noch keine Outfits</h1>
@@ -1994,7 +2071,7 @@ async function makeShare(name, description, parts, outfitId){
     const link=location.origin+location.pathname+'?s='+token;
     S.sheetMode='sharelink'; S.shareLink={link, name, expires};
     renderShareSheet();
-  }catch(e){ console.error(e); toast('Teilen fehlgeschlagen: '+(e.message||e)); }
+  }catch(e){ console.error(e); toast('Teilen fehlgeschlagen: '+friendlyError(e)); }
 }
 function shareOutfit(id){
   const o=S.outfits.find(x=>x.id===id); if(!o) return;
@@ -2044,7 +2121,7 @@ async function updateOutfit(btn){
   const patch={slots}; if(S.d.desc && !S.d.desc.loading && S.d.desc.text) patch.description=S.d.desc.text;
   const {data,error}=await sb.from('outfits').update(patch).eq('id',o.id).select().single();
   btn.disabled=false;
-  if(error){ toast('Speichern fehlgeschlagen: '+error.message); return; }
+  if(error){ toast('Speichern fehlgeschlagen: '+friendlyError(error)); return; }
   Object.assign(o,data); toast(`„${o.name}“ gespeichert`);
 }
 /* Getragen: „Das zieh ich an“ – nur im Hintergrund für Charly */
@@ -2087,7 +2164,7 @@ async function saveOEdit(btn){
     }
     const {data,error}=await sb.from('outfits').update({name,folder_id}).eq('id',o.id).select().single(); if(error) throw error;
     Object.assign(o,data); closeSheet(); render(); toast('Outfit gespeichert');
-  }catch(e){ btn.disabled=false; toast('Speichern fehlgeschlagen: '+(e.message||e)); }
+  }catch(e){ btn.disabled=false; toast('Speichern fehlgeschlagen: '+friendlyError(e)); }
 }
 function openFRename(id){ S.sheetMode='frename'; S.frename=id; renderFRename(); }
 function renderFRename(){
