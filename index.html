@@ -86,7 +86,7 @@ h2{font-weight:400;font-size:20px}
 .navadd.on{border-color:var(--ink);background:var(--ink);color:var(--bg)}
 .nav button{font-size:15px;padding:6px 0;border-bottom:1.5px solid transparent;color:var(--muted)}
 .nav button.on{color:var(--ink);border-color:var(--ink)}
-.icbtn{width:40px;height:40px;display:grid;place-items:center;border-radius:50%}
+.icbtn{width:40px;height:40px;display:grid;place-items:center;border-radius:50%;overflow:hidden}
 .icbtn:hover{background:var(--soft)}
 svg{width:22px;height:22px;flex:none}
 main{max-width:1100px;margin:0 auto;padding:22px 20px calc(110px + env(safe-area-inset-bottom,0px))}
@@ -133,7 +133,11 @@ textarea{font:inherit}
 /* Schrank */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:22px 12px}
 .tile{text-align:left;display:block;width:100%}
-.ph{aspect-ratio:4/5;background:var(--stage);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.ph{aspect-ratio:4/5;background:var(--stage);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;border-radius:10px}
+.empty-slot{display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted)}
+.empty-slot svg{width:26px;height:26px;opacity:.5}
+.ph:not(.loaded){background:linear-gradient(100deg, var(--stage) 35%, color-mix(in srgb, var(--stage) 55%, #fff) 50%, var(--stage) 65%);background-size:220% 100%;animation:shimmer 1.6s ease-in-out infinite}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .ph img{width:100%;height:100%;object-fit:contain}
 .tile .meta{font-size:14px;margin-top:7px;display:flex;align-items:center;gap:7px}
 .filters{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px 0 18px;margin-bottom:22px}
@@ -162,7 +166,7 @@ textarea{font:inherit}
 .row{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;gap:4px;margin-bottom:8px}
 .arrow{width:44px;height:44px;border-radius:50%;display:grid;place-items:center}
 .arrow:hover:not(:disabled){background:var(--soft)}
-.stage{position:relative;background:var(--stage);height:var(--h);display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.stage{position:relative;background:var(--stage);height:var(--h);display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:pan-y;user-select:none;-webkit-user-select:none;border-radius:10px}
 .stage.soda{background:linear-gradient(135deg,#ff0059,#ff8a00,#ffe600,#28e07a,#00c3ff,#8b5cf6,#ff0059);background-size:400% 400%;animation:sodarainbow 5s ease infinite}
 @keyframes sodarainbow{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
 .sodawrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:100%;width:100%}
@@ -239,7 +243,7 @@ textarea{font:inherit}
 .toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:11px 18px;font-size:14px;z-index:60;max-width:90vw;display:flex;align-items:center;gap:16px}
 .toast .tundo{color:var(--bg);font-weight:500;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
 .tile{position:relative}
-.tile .check{position:absolute;top:8px;left:8px;width:28px;height:28px;border-radius:50%;border:2px solid #fff;background:rgba(0,0,0,.25);display:grid;place-items:center}
+.tile .check{position:absolute;top:8px;left:8px;width:32px;height:32px;border-radius:50%;border:2.5px solid #fff;background:rgba(0,0,0,.25);display:grid;place-items:center;box-shadow:0 1px 4px rgba(0,0,0,.25)}
 .tile.sel .check{background:var(--loden);border-color:var(--loden)}
 .tile.sel .ph{outline:3px solid var(--loden);outline-offset:-3px}
 .tile .check svg{width:16px;height:16px;color:#fff}
@@ -278,7 +282,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_EMAIL  = 'eugen@mahler.xyz';
 /* ================================================= */
 
-const APP_VERSION = '9.36';
+const APP_VERSION = '9.39';
 const BUCKET = 'wardrobe';
 const CATS = ['Kopfbedeckung','T-Shirt','T-Shirt Cropped','Longsleeve','Hemd/Bluse','Pullover','Weste','Jacke/Mantel','Sakko','Hose','Kurze Hose','Rock','Kleid','Schuhe','Tasche','Accessoires'];
 const BAG_SIZES = ['Klein','Mittel','Groß'];
@@ -535,7 +539,7 @@ function viewSchrank(){
     ${S.searchOpen?`<div class="field"><input id="schrank-search" data-c="schrank-search" type="text" value="${esc(S.search||'')}" placeholder="Suche nach Art, Farbe, Notiz …" aria-label="Suche"></div>`:''}
     ${S.filterOpen?filterPanel():''}
     <div class="grid">${list.map(i=>`<button class="tile ${S.sel?.has(i.id)?'sel':''}" data-a="edit" data-id="${i.id}" ${S.sel?`aria-pressed="${S.sel.has(i.id)}"`:''}>${S.sel?`<span class="check">${S.sel.has(i.id)?ICON.check:''}</span>`:''}
-      <div class="ph"><img loading="lazy" src="${url(i)}" alt="${esc(i.category)}"></div>
+      <div class="ph"><img loading="lazy" onload="this.parentElement.classList.add('loaded')" src="${url(i)}" alt="${esc(i.category)}"></div>
       <div class="meta"><span class="dot" style="background:${COLORS[i.color]||'#ccc'}"></span>${i.color2?`<span class="dot2" style="background:${COLORS[i.color2]||'#ccc'}"></span>`:''}${esc(i.category)}</div>${i.pending?'<div class="pend">Erkennung ausstehend</div>':''}${(!S.d.hideLoan && i.loaned_to)?`<div class="pend">Verliehen an ${esc(i.loaned_to)}</div>`:''}</button>`).join('')}</div>
     ${list.length?'':'<p class="muted">Kein Teil passt zu diesem Filter.</p>'}
     ${S.sel?`<div class="bulkbar"><span class="count">${S.sel.size} ausgewählt</span>
@@ -623,7 +627,7 @@ function viewAdd(){
     <label class="bigbtn">${ICON.camera}<span>Foto aufnehmen</span><input type="file" accept="image/*" capture="environment" data-c="files" hidden></label>
     <label class="bigbtn">${ICON.gallery}<span>Aus Galerie wählen</span><input type="file" accept="image/*" multiple data-c="files" hidden></label>
   </div>
-  <p class="hint">Ein Teil pro Foto, am besten flach auf einem ruhigen, hellen Untergrund. Du kannst viele Fotos auf einmal wählen, sie werden nacheinander verarbeitet.</p>
+  <p class="hint">Ein Teil pro Foto, am besten auf weißem Hintergrund für die beste Qualität beim Freistellen. Du kannst viele Fotos auf einmal wählen, sie werden nacheinander verarbeitet.</p>
   <p class="mstatus" id="mstatus">${esc(S.mstatus)}</p>
   ${S.queue.map(qCard).join('')}
   ${done.length?`<div class="savebar"><button class="btn" data-a="q-save" ${keepN?'':'disabled'}>${keepN} ${keepN===1?'Teil':'Teile'} speichern</button>
@@ -1261,7 +1265,7 @@ function loanDays(iso){ if(!iso) return 0; return Math.max(0, Math.floor((Date.n
 function renderLoans(){
   const list=S.items.filter(i=>i.loaned_to).sort((a,b)=>new Date(a.loaned_at)-new Date(b.loaned_at));
   const body = list.length ? `<div class="grid">${list.map(i=>`<div class="tile">
-      <div class="ph"><img loading="lazy" src="${url(i)}" alt="${esc(i.category)}"></div>
+      <div class="ph"><img loading="lazy" onload="this.parentElement.classList.add('loaded')" src="${url(i)}" alt="${esc(i.category)}"></div>
       <div class="meta"><span class="dot" style="background:${COLORS[i.color]||'#ccc'}"></span>${esc(i.category)}</div>
       <div class="muted small">An ${esc(i.loaned_to)}</div>
       <div class="muted small">Seit ${loanDays(i.loaned_at)} Tagen${loanDays(i.loaned_at)>=20?' · Erinnerung fällig':''}</div>
@@ -1309,7 +1313,7 @@ function renderMultikasten(){
     : `<div class="field"><input type="text" data-c="mk-search" value="${esc(st.search||'')}" placeholder="Suche nach Art, Farbe, Muster, Material …" aria-label="Suche"></div>
        <p class="muted small" style="margin:-6px 0 10px">${list.length} von ${items.length} Teilen${st.userErr?` · Namen: Fehler (${esc(st.userErr)})`:` · ${st.userCount??0} Namen geladen`}</p>
        <div class="grid">${list.map(i=>`<button class="tile" data-a="mk-view" data-id="${i.id}">
-         <div class="ph"><img loading="lazy" src="${S.urls[i.image_path]?.url||''}" alt="${esc(i.category)}"></div>
+         <div class="ph"><img loading="lazy" onload="this.parentElement.classList.add('loaded')" src="${S.urls[i.image_path]?.url||''}" alt="${esc(i.category)}"></div>
          <div class="meta"><span class="dot" style="background:${COLORS[i.color]||'#ccc'}"></span>${i.color2?`<span class="dot2" style="background:${COLORS[i.color2]||'#ccc'}"></span>`:''}${esc(i.category)}</div>
          <div class="muted small">${[i.pattern,i.material].filter(Boolean).map(esc).join(' · ')}</div>
          <div class="muted small" style="margin-top:2px">${esc(st.users[i.user_id]||'Unbekannt')}</div>
@@ -1690,7 +1694,7 @@ function rowHTML(s){
     <button class="arrow" data-a="d-step" data-s="${s.key}" data-v="-1" aria-label="${s.label}: vorheriges Teil" ${canStep?'':'disabled'}>${ICON.chevL}</button>
     <div class="stage ${showSoda?'soda':''}" data-swipe="${s.key}">
       ${showSoda ? `<div class="sodawrap"><span class="sodalabel">Spaßgetränk des Tages</span><img class="sodacan" src="${SODA_CANS[S.sodaCan]}" alt="" draggable="false"></div>`
-        : (it?`<button class="stageimg" data-a="d-view" data-id="${it.id}" aria-label="${esc(it.category)} groß ansehen"><img class="${anim}" src="${url(it)}" alt="${esc(it.category)}" draggable="false"></button>`:`<span class="muted small">Kein passendes Teil</span>`)}
+        : (it?`<button class="stageimg" data-a="d-view" data-id="${it.id}" aria-label="${esc(it.category)} groß ansehen"><img class="${anim}" src="${url(it)}" alt="${esc(it.category)}" draggable="false"></button>`:`<span class="empty-slot">${ICON.hanger}<span class="muted small">Kein passendes Teil</span></span>`)}
       <div class="rowctl">
         <button class="ic ${locked?'on':''}" data-a="d-lock" data-s="${s.key}" aria-label="${locked?'Lösen':'Fixieren'}" title="${locked?'Lösen':'Fixieren'}" ${it&&!showSoda?'':'disabled'}>${locked?ICON.lock:ICON.unlock}</button>
         <button class="ic" data-a="d-hide" data-s="${s.key}" aria-label="${s.label} ausblenden" title="Ausblenden">${ICON.eyeOff}</button>
